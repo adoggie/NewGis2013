@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="342" height="18" textAlign="left" color="#DED5D5">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:BorderContainer width="15" height="15" x="5" y="2" backgroundColor="#9FDA96">
+	</s:BorderContainer>
+	<s:Label text="正常"/>
+	<s:BorderContainer width="15" height="15" backgroundColor="#BABBA6">
+	</s:BorderContainer>
+	<s:Label text="离线"/>
+	<s:BorderContainer width="15" height="15" backgroundColor="#EC2B0B">
+	</s:BorderContainer>
+	<s:Label text="报警"/>
+</s:Group>

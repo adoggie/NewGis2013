@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300" xmlns:ui="com.sw2us.newgis.ui.*">
+	<s:layout>
+		<s:VerticalLayout gap="0" paddingLeft="5" paddingRight="5"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:RadioButtonGroup id="rgType"/>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="25" verticalAlign="middle" paddingRight="0">
+		<s:Label text="名称"/>
+		<s:TextInput width="100%"/>
+		<s:Button label="检索" width="60" id="btnSearch"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="25" verticalAlign="middle">
+		<s:Label text="对象类型"/>
+		<s:RadioButton label="道路" groupName="rgType"/>
+		<s:RadioButton label="POI" groupName="rgType"/>
+		<mx:Spacer width="100%" height="20"/>
+		<s:Label text="城市"/>
+		<s:DropDownList labelField="name" selectedIndex="0" width="80">
+			<s:dataProvider>
+				<s:ArrayCollection>
+					<fx:Object name="全国" value=""/>
+					<fx:Object name="安徽" value="anhui"/>
+					<fx:Object name="北京" value="beijing"/>
+					<fx:Object name="重庆" value="chongqing"/>
+					<fx:Object name="福建" value="fujian"/>
+					<fx:Object name="甘肃" value="gansu"/>
+					<fx:Object name="广东" value="guangdong"/>
+					<fx:Object name="广西" value="guangxi"/>
+					<fx:Object name="贵州" value="guizhou"/>
+					<fx:Object name="海南" value="hainan"/>
+					<fx:Object name="河北" value="hebei"/>
+					<fx:Object name="黑龙江" value="heilongjiang"/>
+					<fx:Object name="河南" value="henan"/>
+					<fx:Object name="湖北" value="hubei"/>
+					<fx:Object name="湖南" value="hunan"/>
+					<fx:Object name="江苏" value="jiangsu"/>
+					<fx:Object name="江西" value="jiangxi"/>
+					<fx:Object name="吉林" value="jilin"/>
+					<fx:Object name="辽宁" value="liaoning"/>
+					<fx:Object name="内蒙古" value="neimenggu"/>
+					<fx:Object name="宁夏" value="ningxia"/>
+					<fx:Object name="青海" value="qinghai"/>
+					<fx:Object name="陕西" value="shan3xi"/>
+					<fx:Object name="山东" value="shandong"/>
+					<fx:Object name="上海" value="shanghai"/>
+					<fx:Object name="山西" value="shanxi"/>
+					<fx:Object name="四川" value="sichuan"/>
+					<fx:Object name="天津" value="tianjin"/>
+					<fx:Object name="新疆" value="xinjiang"/>
+					<fx:Object name="西藏" value="xizang"/>
+					<fx:Object name="云南" value="yunnan"/>
+					<fx:Object name="浙江" value="zhejiang"/>
+				
+					
+				</s:ArrayCollection>
+				
+			</s:dataProvider>
+		</s:DropDownList>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" horizontalScrollPolicy="auto">
+		<mx:columns>
+			<mx:DataGridColumn headerText="城市" dataField="col1"/>
+			<mx:DataGridColumn headerText="对象" dataField="col2"/>
+			<mx:DataGridColumn headerText="类型" dataField="col3"/>
+			<mx:DataGridColumn headerText="位置"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+	<ui:uiPageCtrl width="100%"/>
+</s:Group>

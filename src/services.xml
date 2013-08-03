@@ -1,0 +1,176 @@
+<SNS>
+	<InterfaceDef >
+		<if id="0" name="IUserClient"/>
+		<if id="1" name="IGatewayAdapter"/>
+		<if id="2" name="IUserService"/>
+		<if id="3" name="IAuthService"/>
+		<if id="4" name="ICtrlService"/>
+		<if id="5" name="INotificationService"/>
+		<if id="6" name="IAlarmService"/>
+		<if id="7" name="ITaskService"/>
+		<if id="8" name="IAoModuleClient"/>
+		<if id="9" name="IAoModuleCtrl"/>
+		<if id="10" name="IDtuService"/>
+	</InterfaceDef>
+
+	<ServiceDef>
+		<service name="CTS" id="1"  mq_pattern="mq_cts_%d">
+			<interfaces>
+				<if name="IUserService" />
+				<if name="IAuthService"/>
+				<if name="ICtrlService"/>
+				<if name="INotificationService"/>
+				<if name="IAlarmService"/>
+				<if name="ITaskService"/>
+				<if name="IAoModuleClient"/>
+				<if name="IAoModuleCtrl"/>
+			</interfaces>
+		</service>
+
+		<service name="GWA" id="3" mq_pattern="mq_gwa_%d">
+			<interfaces>
+				<if name="IGatewayAdapter" />
+			</interfaces>
+		</service>
+
+		<service name="DIRECT" id="5" mq_pattern="mq_direct_%d">
+			<interfaces>
+			</interfaces>
+		</service>
+
+		<service name="TERM"	id="4">
+			<interfaces>
+				<if name="IUserClient"/>
+			</interfaces>
+		</service>
+
+
+		<service name="DTU" id="6" mq_pattern="mq_dtu_%d">
+			<interfaces>
+				<if name="IDtuService"/>
+			</interfaces>
+		</service>
+
+		<service name="WEBSVR" id="7" mq_pattern="mq_websvr_%d">
+			<interfaces>
+			</interfaces>
+		</service>
+
+	</ServiceDef>
+
+	<EndPoints>
+		<ep name="gwa_socket" 	address="" type="socket" host="172.16.14.254" port="4002"/>
+		<ep name="gwa_websocket" 	address="" type="websocket" host="172.16.14.254" port="4003"/>
+		<ep name="direct_socket" 	address="" type="socket" host="172.16.14.254" port="4004"/>
+		<ep name="direct_websocket" address="" type="websocket" host="172.16.14.254" port="4005"/>
+
+		<ep name="mq_direct_1" 		address="mq_direct_1;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+		<ep name="mq_direct_2" 		address="mq_direct_2;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+
+		<ep name="mq_gwa_1" 		address="mq_gwa_1;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+		<ep name="mq_gwa_2" 		address="mq_gwa_2;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+
+		<ep name="mq_gwa_broadcast" address="mq_gwa_broadcast;{create:always,node:{type:topic,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+		<ep name="mq_cts_1" 		address="mq_cts_1;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+
+		<ep name="auto" 		address="" type="auto" host="127.0.0.1" port="5672"/> <!-- mq根据包属性 src_id,src_type自动生成 -->
+		<ep name="user" 		address="" type="auto" host="127.0.0.1" port="5672"/>
+
+		<ep name="mq_dtu_1" address="mq_dtu_1;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+
+		<ep name="mq_aom_clients" address="mq_aom_clients;{create:always,node:{type:topic,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+
+		<ep name="mq_websvr_1" address="mq_websvr_1;{create:always,node:{type:queue,durable:true}}" type="mq"
+		    host="127.0.0.1" port="5672"/>
+	</EndPoints>
+
+
+	<servers>
+		<server name="gwa_1" type="GWA" id="1" >
+			<route if="ICtrlService">
+				<call in="mq_gwa_1" out="mq_cts_1" /> 		<!-- gwa自己发起调用CtrlServer输出mq_cts,返回结果mq_gwa1，注意: mq_gwa1必须与service定义中的pattern和service类型，gwa编号对应，cts将返回消息放入mq属性携带的src_type,src_id拼凑的名称的队列 -->
+				<call in="gwa_socket" out="mq_cts_1" />
+				<return in="mq_gwa_1" out="gwa_websocket" /> 	<!-- 通过gwa的设备对CtrlServer的调用返回-->
+			</route>
+			<route if="IUserClient">
+				<call in="mq_gwa_broadcast" out="gwa_socket"/> <!-- 内部服务系统调用终端请求时的路由配置, 必须是单向调用，内部服务必须时异步请求 -->
+				<call in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+
+			<route if="IUserService">
+				<call in="gwa_socket" out="mq_cts_1"/>
+				<return in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+			<route if="IAuthService">
+				<call in="gwa_socket" out="mq_cts_1"/>
+				<return in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+
+			<route if="IAlarmService">
+				<call in="gwa_socket" out="mq_cts_1"/>
+				<return in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+
+			<route if="ITaskService">
+				<call in="gwa_socket" out="mq_cts_1"/>
+				<return in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+
+			<route if="IAoModuleCtrl">
+				<call in="gwa_socket" out="mq_cts_1"/>
+				<return in="mq_gwa_1" out="gwa_socket"/>
+			</route>
+
+
+			<extra_mqs ins="" outs=""/> <!-- 调用返回会根据src_type,src_id生成mq名称来会送rpc消息，这里必须写上那些mq名称，例如： mq_cons_1,mq_loc_1s -->
+			<properties>
+				<property name="userid_check" value="true"/>
+			</properties>
+		</server>
+
+		<server name="direct_1" type="DIRECT" id="1" >
+			<route if="IAuthService">
+				<call in="direct_socket" out="mq_cts_1"/>
+				<return in="mq_direct_1" out="direct_socket"/>
+			</route>
+			<extra_mqs ins="" outs=""/>
+			<properties>
+				<property name="userid_check" value="false"/>
+			</properties>
+		</server>
+
+
+		<server name="cts_1" type="CTS" id="1" >
+
+			<extra_mqs ins="mq_aom_clients,mq_cts_1" outs="mq_gwa_1,mq_direct_1,mq_dtu_1"/>
+			<!--<extra_mqs ins="mq_aom_clients" outs=""/>-->
+			<properties>
+				<property name="some" value="true"/>
+			</properties>
+		</server>
+
+		<server name="dtu_1" type="DTU" id="1" >
+			<extra_mqs ins="mq_dtu_1" outs="mq_gwa_1,mq_direct_1,mq_cts_1,mq_aom_clients"/>
+			<properties>
+				<property name="some" value="true"/>
+			</properties>
+		</server>
+
+		<server name="webserver_1" type="WEBSVR" id="1" >
+			<extra_mqs ins="mq_websvr_1" outs="mq_gwa_1,mq_direct_1,mq_cts_1"/>
+			<properties>
+				<property name="some" value="true"/>
+			</properties>
+		</server>
+	</servers>
+
+
+</SNS>

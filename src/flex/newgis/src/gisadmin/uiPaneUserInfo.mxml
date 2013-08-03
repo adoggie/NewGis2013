@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Panel xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="448" height="338"
+		  creationComplete="init()">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="createUser" result="createUser_result(event)" fault="onfault(event)"/>
+			<s:method name="updateUser" result="updateUser_result(event)" fault="onfault(event)"/>
+			<s:method name="getUserDetail" result="getUserDetail_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+		<fx:Script>
+			<![CDATA[
+				
+				import com.sw2us.newgis.*;
+				
+				import mx.collections.ArrayCollection;
+				import mx.controls.Alert;
+				import mx.events.CloseEvent;
+				import mx.events.ListEvent;
+				import mx.graphics.Stroke;
+				import mx.managers.PopUpManager;
+				import mx.rpc.events.FaultEvent;
+				import mx.rpc.events.ResultEvent;
+				
+				private var _d:Object = null;
+				private var _status:String="";
+				
+				public function newUser():void{
+					_status="new";
+					reset();
+					this.edtUser.enabled = true;
+				}
+				
+				public function showUser(d:Object):void{
+					_d = d;
+					server.getUserDetail(d.id);
+					this.edtUser.enabled = false;
+				}
+				
+				public function delUser():void{
+					_d = null;
+				}
+				
+				private function reset():void{
+					_d = null;
+					edtUser.text = "";
+					this.edtAddress.text="";
+					this.edtContract.text="";
+					this.edtMemo.text="";
+					this.edtName.text="";
+					this.edtPhone.text="";
+					this.edtPwd.text="";
+					this.edtZipCode.text="";
+					
+				}
+					
+				private function onfault(event:FaultEvent):void{
+					Alert.show(event.fault.faultDetail);
+				}	
+				
+				private function init():void{
+					pyamf.uri = AppCore.instance().getAmfServerUrl();
+				}
+				
+				private function getUserDetail_result(event:ResultEvent):void{
+					var cr:Object = event.result;
+					if(cr.succ == false){
+						Alert.show(cr.msg);
+						return;
+					}
+					_d = cr.result; 
+					this.edtUser.text = _d.sid;
+					this.edtPwd.text = _d.passwd;
+					this.edtName.text = _d.name;
+					this.edtAddress.text = _d.address;
+					this.edtZipCode.text = _d.zipcode;
+					this.edtPhone.text = _d.phone;
+					this.edtContract.text = _d.contactman;
+					this.edtMemo.text = _d.comment;
+					this.chkLock.selected = _d.enable;
+					
+						
+					
+				}
+				
+				private function createUser_result(event:ResultEvent):void{
+					var cr:Object = event.result;
+					if(cr.succ == false){
+						Alert.show(cr.msg);
+						return;
+					}
+					
+					_d = cr.result;
+					Alert.show("创建用户成功!");
+				}
+				
+				private function updateUser_result(event:ResultEvent):void{
+					var cr:Object = event.result;
+					if(cr.succ == false){
+						Alert.show(cr.msg);
+						return;
+					}
+					_d = cr.result;
+					Alert.show("更新成功!");
+				}
+				
+
+				protected function btnClear_clickHandler(event:MouseEvent):void
+				{
+					reset();
+				}
+
+
+				protected function btnSave_clickHandler(event:MouseEvent):void
+				{
+					var d:Object = new Object();
+					d.sid = this.edtUser.text;
+					d.passwd = this.edtPwd.text;
+					d.name = this.edtName.text;
+					d.address = this.edtAddress.text;
+					d.zipcode = this.edtAddress.text;
+					d.phone = this.edtPhone.text;
+					d.contactman = this.edtContract.text;
+					d.comment = this.edtMemo.text;
+					d.enable = this.chkLock.selected;
+					
+					if(_d == null){
+						//Alert.show("空对象如何能保存呢?");
+						server.createUser(d);
+						return;
+					}
+					d.id = _d.id;
+					
+					server.updateUser(d);
+					
+				}
+
+			]]>
+		</fx:Script>	
+		
+		
+		
+	<s:Label text="密码" width="44" textAlign="right" x="20" y="70"/>
+	<s:TextInput  id="edtPwd" x="78" y="62"/>
+	<s:Label text="联系人" width="44" textAlign="right" x="20" y="128"/>
+	<s:TextInput id="edtContract" x="78" y="121"/>
+	<s:TextInput id="edtPhone" x="266" y="89"/>
+	<s:Label text="邮编" width="44" textAlign="right" x="211" y="127"/>
+	<s:TextInput id="edtZipCode" x="267" y="120"/>
+	<s:Label text="联系地址" width="54" textAlign="right" x="10" y="157"/>
+	<s:TextInput id="edtName" x="79" y="91"/>
+	<s:Label text="用户" width="44" textAlign="right" x="21" y="97"/>
+	<s:TextInput width="342" id="edtAddress" x="78" y="153"/>
+	<s:Label x="28" y="40" text="登录名"/>
+	<s:Label x="234" y="97" text="电话"/>
+	<s:TextInput x="78" y="34" id="edtUser"/>
+	<s:Button x="141" y="271" label="保存" id="btnSave" click="btnSave_clickHandler(event)"/>
+	<s:Button x="10" y="5" label="刷新" id="btnFlash"/>
+	<s:Label x="20" y="196" text="备注"/>
+	<s:CheckBox x="251" y="34" label="可用" id="chkLock" chromeColor="#E19B06"/>
+	<s:TextArea x="78" y="183" height="72" width="342" id="edtMemo"/>
+	<s:Button x="223" y="271" label="清除" id="btnClear" click="btnClear_clickHandler(event)"/>
+</s:Panel>

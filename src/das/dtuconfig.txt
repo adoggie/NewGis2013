@@ -1,0 +1,17 @@
+{
+	"sid":"das001",
+	"services":[
+		{"name":"gps_simulator","enable":false,"proto":"tcp","host":"localhost","port":6000,"codec":"MediaCodec_SimpleGps"},
+		{"name":"ts102","enable":false,"proto":"tcp","host":"localhost","port":12007,"codec":"MediaCodec_KS102"},
+		{"name":"ts108","enable":true,"proto":"tcp","host":"61.152.116.120",
+			"port":58662,"codec":"codec_ks108"}
+		
+	],
+	"db":{
+		"name":"newgps","host":"localhost","port":5432,"user":"postgres","passwd":"111111"
+	},
+	"ctrlserver":["localhost",6002],
+	"log":"log/dtuserver"
+}
+
+

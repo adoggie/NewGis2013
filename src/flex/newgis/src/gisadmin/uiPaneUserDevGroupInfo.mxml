@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Panel xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="452" height="216" title="用户设备组"
+		  creationComplete="init()">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="createAoUserGroup" result="createAoUserGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteAoUserGroup" result="deleteAoUserGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="updateAoUserGroup" result="updateAoUserGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="getUserAoGroupDetail" result="getUserAoGroupDetail_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var _d:Object = null;
+			private var _uid:int = 0;
+			
+			public function showItem(d:Object):void{
+				_d = d;
+				reset();
+				server.getUserAoGroupDetail(d.id);
+			}
+			
+			public function newItem(uid:int):void{
+				_d = null;	
+				_uid = uid;
+				reset();
+			}
+			
+			public function reset():void{
+				this.edtMemo.text="";
+				this.edtName.text="";
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function createAoUserGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				Alert.show("创建成功!");
+			}
+			
+			private function deleteAoUserGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				 
+			}
+			
+			private function updateAoUserGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				Alert.show("更新成功");
+			}
+			
+			private function getUserAoGroupDetail_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				this.edtName.text = _d.name;
+				this.edtMemo.text = _d.comment;
+			}
+			
+			protected function btnClear0_clickHandler(event:MouseEvent):void
+			{
+				reset();
+			}
+
+			protected function btnSave0_clickHandler(event:MouseEvent):void
+			{
+				var g:Object = new Object();
+				g.name = this.edtName.text;
+				g.comment = this.edtMemo.text;
+				if(_d==null){
+					server.createAoUserGroup(_uid,g);					
+					return;
+				}
+				g.id = _d.id;
+				server.updateAoUserGroup(g);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Label x="28" y="40" text="名称" />
+	<s:TextInput x="72" y="34" id="edtName" width="342"/>
+	<s:Button x="141" y="151" label="保存" id="btnSave0" click="btnSave0_clickHandler(event)"/>
+	<s:Label x="20" y="76" text="备注"/>
+	<s:TextArea x="72" y="63" height="72" width="342" id="edtMemo"/>
+	<s:Button x="223" y="151" label="清除" id="btnClear0" click="btnClear0_clickHandler(event)"/>
+</s:Panel>

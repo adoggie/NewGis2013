@@ -1,0 +1,11 @@
+﻿
+<server>
+	<config name="dtu_1" file="../services.xml"/>
+	<env pythonpath="../../tce/python,../" />
+	<services>
+		<service name="gps_simulator" enable="false" proto="tcp" host="localhost" port="6000" codec="MediaCodec_SimpleGps"/>
+		<service name="ts102" enable="false" proto="tcp" host="localhost" port="12007" codec="MediaCodec_KS102"/>
+		<service name="ts108" enable="true" proto="tcp" host="localhost" port="58662" codec="codec_ks108"/>
+		<service name="phone" enable="true" proto="tcp" host="localhost" port="58663" codec="codec_phone"/>
+	</services>
+</server>

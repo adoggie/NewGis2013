@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="611" height="100%"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout paddingBottom="2" paddingTop="2" paddingLeft="2" paddingRight="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="getActiveObjectList" result="getActiveObjectList_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteActiveObject" result="deleteActiveObject_result(event)" fault="onfault(event)"/>
+			
+			
+		</s:RemoteObject>
+		
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function getActiveObjectList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result); //必须是collection类型才可以刷新
+			}
+			
+			private function deleteActiveObject_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				Alert.show("删除成功!");
+				onSearch();
+				gisadmin.gisadmin.mainwindow.onAddDevice();
+			}
+			
+			
+			private function onSearch():void{
+				server.getActiveObjectList(this.edtFilter.text);
+					//parseInt(cbxType.selectedItem.value)
+				
+			}
+			
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				onSearch();
+			}
+
+			private function cb_onAddedDevice():void{
+				onSearch();
+			}
+			
+			protected function btnAddDevice_clickHandler(event:MouseEvent):void
+			{
+				gisadmin.gisadmin.mainwindow.onAddDevice(cb_onAddedDevice);
+			}
+
+			private function onalert_del(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteActiveObject( dg.selectedItem.id );
+				}
+			}
+			
+			protected function btnDelDevice_clickHandler(event:MouseEvent):void
+			{
+				if(this.dg.selectedItem == null){
+					return;
+				}
+				Alert.show("是否真的要删除?(将删除与设备相关的所有数据)","警告",Alert.YES | Alert.CANCEL,this,onalert_del);
+				
+			}
+
+
+			protected function dg_itemClickHandler(event:ListEvent):void
+			{
+				if(dg.selectedItem == null){
+					return;
+				}
+				gisadmin.gisadmin.mainwindow.onShowDevice(dg.selectedItem);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="32" verticalAlign="middle">
+		<s:Label text="类型"/>
+		<s:DropDownList labelField="name" selectedIndex="0" id="cbxType">
+		 	<s:ArrayList>
+				<fx:Object name="名称" value="1"/>
+				<fx:Object name="接入服务器ID" value="2"/>				
+			</s:ArrayList>
+		</s:DropDownList>
+		<s:Label text="名称"/>
+		<s:TextInput width="173" id="edtFilter"/>
+		<s:Button label="查询" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+		<s:Button label="新增设备" id="btnAddDevice" click="btnAddDevice_clickHandler(event)"/>
+		<s:Button label="删除设备" id="btnDelDevice" click="btnDelDevice_clickHandler(event)"/>
+	</s:HGroup>
+	
+	<mx:DataGrid width="100%" height="100%" horizontalScrollPolicy="auto" id="dg"
+				 focusColor="#F5EAEA"  itemClick="dg_itemClickHandler(event)" horizontalGridLines="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+			<mx:DataGridColumn headerText="名称" dataField="name"/>
+			<mx:DataGridColumn headerText="设备类型" dataField="devtype"/>
+			<mx:DataGridColumn headerText="接入服务器" dataField="dasid"/>
+			<mx:DataGridColumn headerText="是否启用" dataField="enable_s"/>
+			<mx:DataGridColumn headerText="当前状态"/>
+			<mx:DataGridColumn headerText="类型编码" dataField="type_s"/>
+			<mx:DataGridColumn headerText="电话" dataField="telphone"/>
+			<mx:DataGridColumn headerText="邮编" dataField="zipcode"/>
+			<mx:DataGridColumn headerText="地址" dataField="address"/>
+			<mx:DataGridColumn headerText="联系人" dataField="contact"/>
+			<mx:DataGridColumn headerText="开通时间" dataField="active_time_s"/>
+			<mx:DataGridColumn headerText="到期时间" dataField="expire_time_s"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+</s:Group>

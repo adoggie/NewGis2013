@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Panel xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="236" title="系统参数"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="2" paddingLeft="5"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="getSysParamList" result="getSysParamList_result(event)" fault="onfault(event)"/>
+			<s:method name="getSysParamInfo" result="getSysParamInfo_result(event)" fault="onfault(event)"/>
+			<s:method name="createSysParam" result="createSysParam_result(event)" fault="onfault(event)"/>
+			<s:method name="updateSysParam" result="updateSysParam_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteSysParam" result="deleteSysParam_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var _d:Object = null;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function getSysParamList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				//dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function getSysParamInfo_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				var d:Object = cr.result;
+				
+				this.edtName.text = d.name;
+				this.edtValue.text = d.value;
+				this.edtComment.text = d.comment;
+			}
+			
+			private function createSysParam_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				Alert.show("创建参数成功!"); 
+			}
+			
+			private function updateSysParam_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				Alert.show("修改参数成功");
+				//dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function deleteSysParam_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				//dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			public function showItem(d:Object):void{
+				_d = d;
+				reset();
+				server.getSysParamInfo(d.id);
+				
+				
+			}
+			
+			public function newItem():void{
+				_d = null;
+				reset();
+			}
+			
+			private function reset():void{
+				this.edtName.text = "";
+				this.edtValue.text = "";
+				this.edtComment.text = "";
+			}
+			
+			
+
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = edtName.text;
+				d.value = edtValue.text;
+				d.comment = edtComment.text;
+				
+				if( _d == null){
+					server.createSysParam(d);
+					return;
+				}
+				d.id = _d.id;
+				server.updateSysParam(d);
+			}
+
+		]]>
+	</fx:Script>
+	<s:HGroup width="100%" height="25" verticalAlign="middle">
+		<s:Label text="参数名称" width="80"/>
+		<s:TextInput id="edtName" width="298" fontSize="14" color="#F50A0A"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="50" verticalAlign="middle">
+		<s:Label text="参数值" width="80"/>
+		<s:TextArea width="298" height="100%" id="edtValue" fontSize="14" color="#EE0B0B"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="92" verticalAlign="middle">
+		<s:Label text="说明" width="80"/>
+		<s:TextArea width="298" height="100%" id="edtComment" fontSize="14"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="30" verticalAlign="middle">
+		<s:Button label="保存" id="btnSave" click="btnSave_clickHandler(event)"/>
+	</s:HGroup>
+</s:Panel>

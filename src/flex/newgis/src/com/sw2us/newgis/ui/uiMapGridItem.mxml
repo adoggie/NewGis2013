@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300" 
+		 xmlns:org="http://openscales.org" creationComplete="init()"
+		 
+		 >
+	<s:layout>
+		<s:VerticalLayout gap="0"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.ActiveObject;
+			import com.sw2us.newgis.ActiveObjectChannelEvent;
+			import com.sw2us.newgis.ActiveObjectData;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.AppCore;
+			import com.sw2us.newgis.map.*;
+			
+			import mx.controls.Alert;
+			import mx.controls.Tree;
+			import mx.events.DragEvent;
+			import mx.managers.DragManager;
+			
+			private var _aolayer:MapAoLayer;
+			
+			private var _ao:ActiveObject = null;
+			private var _mao:MapAo= null;
+			
+			private function init():void{
+				
+				
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				
+				
+				AppCore.instance().getAoCollector().addEventListener(ActiveObjectEvent.AO_DATA,onAoData);
+				
+					//pyamf.uri = AppCore.instance().getAmfServerUrl();				
+				_aolayer = new MapAoLayer(fxmap.map);	//添加ao活动对象层
+				fxmap.map.addLayer(_aolayer);
+				
+				
+				//this.onAfterLogin();
+				//test();
+				//btnVisitPointSearch_clickHandler(null);
+				//btnAoSearch_clickHandler(null);
+			}
+			
+			
+		
+			//捕捉collector上过来的ao数据包
+			private function onAoData(event:ActiveObjectEvent):void{
+				var d:ActiveObjectData = event.data;
+				if( d.ao != this._ao){
+					return;
+				} 
+				this.setMapCenterAo(d.ao);	
+			}
+			
+			
+			//Ao对象地图居中
+			private function setMapCenterAo(ao:ActiveObject):void{
+				if(ao == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer.getMapAoById(ao.getId());
+				mao.moveCenter();
+			}
+
+			protected function fxmap_dragDropHandler(event:DragEvent):void
+			{
+				//Alert.show("aaa");
+			}
+
+
+			protected function fxmap_mouseUpHandler(event:MouseEvent):void
+			{
+				//Alert.show("mouse up");
+			}
+
+
+			protected function fxmap_dragEnterHandler(event:DragEvent):void
+			{
+				var tree:Tree = Tree(event.dragInitiator);
+				AppCore.instance()._delta.dragitem = this;
+				DragManager.acceptDragDrop(tree);
+				
+			}
+				//Alert.show(event.
+			public function setActiveObject(ao:ActiveObject):void{
+				if(_ao !=null){
+					_ao.removeMapObject(_mao);
+					_mao.destroyThis();
+				}
+				_ao = ao;
+				txtName.text = ao.getInfo().name;
+				
+				_mao = new MapAo(ao,_aolayer);		
+				
+				setMapCenterAo(_ao);
+				//trace( ao.getInfo().name);
+			} 
+
+			protected function btnClear_clickHandler(event:MouseEvent):void
+			{
+				if(_ao !=null){
+					_ao.removeMapObject(_mao);
+					_mao.destroyThis();
+				}
+				_ao = null;
+				txtName.text = "";
+			}
+
+		]]>
+	</fx:Script>
+	<s:HGroup width="100%" height="16" verticalAlign="middle">
+		<mx:LinkButton label="[关闭]" textDecoration="underline" color="#ED4E08" id="btnClear" click="btnClear_clickHandler(event)"/>
+		<s:Label text="未选择" width="114" id="txtName"/>
+	</s:HGroup>
+	<org:Map id="fxmap" width="100%" height="100%"  
+			 zoom="12" 
+			 center="121.486,31.0185"  dragDrop="fxmap_dragDropHandler(event)" mouseUp="fxmap_mouseUpHandler(event)" dragEnter="fxmap_dragEnterHandler(event)">
+		<org:layout>
+			<s:BasicLayout/>
+		</org:layout>
+		<org:WMSC id="layerchina" x="168" y="209"  layers="china" 		 
+				  resolutions="  0.000005, 0.000008, 0.000012, 0.000018, 0.000024, 0.000047, 0.000119, 0.000237,
+				  0.000474, 0.000948, 0.001660, 0.002371, 0.004742, 0.011854, 0.023708, 0.047416,
+				  0.094833"   
+				  width="88">
+			
+		</org:WMSC>
+		
+		
+		
+		
+		<org:MousePosition numdigits="4.4"  id="llpos" x="10" y="{fxmap.height-20}" width="195"   >
+		</org:MousePosition>
+		<org:DragHandler  />
+		<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+		</org:PanZoom>
+		
+		<org:ScaleLine id="scaline" x="{fxmap.width - 200}" y="{fxmap.height-80}" map="{fxmap.map}"></org:ScaleLine>	
+		<org:WheelHandler/>
+		
+		<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+		<!-- 加载时候的沙漏-->
+		
+		
+		<!--<org:FeatureDrawing x="0" y="{height-200}"/>-->
+		<org:FeatureLayer id="aolayers" x="100" y="316" width="174" height="93">					
+		</org:FeatureLayer>
+		
+		<org:FeatureLayer id="aolayer" x="100" y="316" width="174" height="93">					
+		</org:FeatureLayer>
+		
+	</org:Map>
+</s:Group>

@@ -1,0 +1,1 @@
+# -*- coding:utf-8 -*-#已经编码成utf-8所以无需转换了system_parameters={	'AoChannel_Host':['localhost','dgw服务器通信地址'],	'AoChannel_Port':['6655','dgw服务器通信地址'],	'wms_url':['http://192.168.14.66:8000/wms','wms服务器地址(暂时未启用)'],			} 

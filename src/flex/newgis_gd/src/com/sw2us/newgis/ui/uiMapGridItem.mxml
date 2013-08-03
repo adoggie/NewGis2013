@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300" 
+		 xmlns:org="http://openscales.org" creationComplete="init()"
+		 
+		 >
+	<s:layout>
+		<s:VerticalLayout gap="0"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.mapabc.maps.api.MFlexMap;
+			import com.mapabc.maps.api.constants.MDisplayState;
+			import com.mapabc.maps.api.constants.MToolbars;
+			import com.mapabc.maps.api.events.MMapEvent;
+			import com.sw2us.newgis.ActiveObject;
+			import com.sw2us.newgis.ActiveObjectChannelEvent;
+			import com.sw2us.newgis.ActiveObjectData;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.AppCore;
+			import com.sw2us.newgis.map.*;
+			
+			import mx.controls.Alert;
+			import mx.controls.Tree;
+			import mx.events.DragEvent;
+			import mx.managers.DragManager;
+			
+			
+			private var _aolayer:MapAoLayer;
+			
+			private var _ao:ActiveObject = null;
+			private var _mao:MapAo= null;
+			
+			private var fxmap:MapControl;
+			
+			private function init():void{
+				
+				/*
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				*/
+				fxmap = new MapCtrl_AutoNavi(map);
+				AppCore.instance().getAoCollector().addEventListener(ActiveObjectEvent.AO_DATA,onAoData);
+				
+					//pyamf.uri = AppCore.instance().getAmfServerUrl();				
+				_aolayer = new MapAoLayer(fxmap);	//添加ao活动对象层
+			//	fxmap.map.addLayer(_aolayer);
+				
+			
+			}
+			
+			
+		
+			//捕捉collector上过来的ao数据包
+			private function onAoData(event:ActiveObjectEvent):void{
+				var d:ActiveObjectData = event.data;
+				if( d.ao != this._ao){
+					return;
+				} 
+				this.setMapCenterAo(d.ao);	
+			}
+			
+			
+			//Ao对象地图居中
+			private function setMapCenterAo(ao:ActiveObject):void{
+				if(ao == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer.getMapAoById(ao.getId());
+				mao.moveCenter();
+			}
+
+			protected function fxmap_dragDropHandler(event:DragEvent):void
+			{
+				//Alert.show("aaa");
+			}
+
+
+			protected function fxmap_mouseUpHandler(event:MouseEvent):void
+			{
+				//Alert.show("mouse up");
+			}
+
+
+			protected function fxmap_dragEnterHandler(event:DragEvent):void
+			{
+				var tree:Tree = Tree(event.dragInitiator);
+				AppCore.instance()._delta.dragitem = this;
+				DragManager.acceptDragDrop(tree);
+				
+			}
+				//Alert.show(event.
+			public function setActiveObject(ao:ActiveObject):void{
+				if(_ao !=null){
+					_ao.removeMapObject(_mao);
+					_mao.destroyThis();
+				}
+				_ao = ao;
+				txtName.text = ao.getInfo().name;
+				
+				_mao = new MapAo(ao,_aolayer);		
+				
+				setMapCenterAo(_ao);
+				//trace( ao.getInfo().name);
+			} 
+
+			protected function btnClear_clickHandler(event:MouseEvent):void
+			{
+				if(_ao !=null){
+					_ao.removeMapObject(_mao);
+					_mao.destroyThis();
+				}
+				_ao = null;
+				txtName.text = "";
+			}
+			
+			
+			private function mapReady(e:MMapEvent):void { 				
+				//map.setZoomAndCenter(13,new MLngLat(116.397428,39.90923)); 				
+			} 
+			
+		]]>
+	</fx:Script>
+	<s:HGroup width="100%" height="16" verticalAlign="middle">
+		<mx:LinkButton label="[关闭]" textDecoration="underline" color="#ED4E08" id="btnClear" click="btnClear_clickHandler(event)"/>
+		<s:Label text="未选择" width="114" id="txtName"/>
+	</s:HGroup>
+	<mapabcMap:MFlexMap xmlns:mapabcMap="com.mapabc.maps.api.*"  id="map" t="flexmap" v="2.3.3" 									
+						key="{['c5a28e037ca748d7fa3203a36e9c5b78cbffc58c6c2797f2058283b9593291fca2f9089808daad33']}" 										
+						 zoom="12" width="100%" height="100%" centerLng="121.30" centerLat="31.20" 
+						 dragDrop="fxmap_dragDropHandler(event)" 
+						 mouseUp="fxmap_mouseUpHandler(event)" 
+						 dragEnter="fxmap_dragEnterHandler(event)"
+						 centerCross="{MDisplayState.HIDE}" fullScreenButton="{MDisplayState.SHOW}" 
+						 MapReady="mapReady(event)"
+						 /> 
+	
+</s:Group>

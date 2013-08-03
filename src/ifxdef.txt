@@ -1,0 +1,11 @@
+<if id="0" name="IUserClient"/>
+<if id="1" name="IGatewayAdapter"/>
+<if id="2" name="IUserService"/>
+<if id="3" name="IAuthService"/>
+<if id="4" name="ICtrlService"/>
+<if id="5" name="INotificationService"/>
+<if id="6" name="IAlarmService"/>
+<if id="7" name="ITaskService"/>
+<if id="8" name="IAoModuleClient"/>
+<if id="9" name="IAoModuleCtrl"/>
+<if id="10" name="IDtuService"/>

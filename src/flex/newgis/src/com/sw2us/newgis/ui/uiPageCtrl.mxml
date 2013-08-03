@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="546" height="36">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.controls.DataGrid;
+			[Bindable] public var _pgidx:int = 0;
+			[Bindable] public var _pgcount:int =0;
+			[Bindable] public var _rowcount:int =0;
+			[Bindable] public var _pgsize:int= 20;
+			public var _cb_do:Function = null;
+			public var _dg:DataGrid = null;
+			
+			public function initPageCtrl( dg:DataGrid,cb:Function):void{
+				_dg = dg;
+				_cb_do = cb;
+				reset();
+			}
+			
+			private function reset():void{
+				_rowcount = 0;
+				_pgcount  =0;
+				_pgidx = 0;
+			}
+			//@params: reset - 重置页码
+			public function getPageCtrl(reset_:Boolean=false):Object{
+				var pg:Object = new Object();
+				if(reset_){
+					reset();
+				}
+				pg.rowcount = _rowcount;
+				pg.pgcount = _pgcount;
+				pg.pgidx = _pgidx;
+				pg.pgsize = _pgsize; //页宽 
+				return pg;
+			}
+			public function setPageCtrl(pg:Object):void{
+				_rowcount = pg.rowcount;
+				_pgcount = pg.pgcount;
+				_pgidx = pg.pgidx;
+			}
+
+			protected function btn_prev_clickHandler(event:MouseEvent):void
+			{
+				if(_cb_do == null) return;
+				if(_pgidx==0){
+					return;
+				}
+				_pgidx--;
+				var pg:Object = getPageCtrl();
+				_cb_do(pg);
+				
+			}
+
+
+			protected function btn_next_clickHandler(event:MouseEvent):void
+			{
+				if(_cb_do == null) return;
+				
+				_pgidx++;
+				var pg:Object = getPageCtrl();
+				_cb_do(pg);
+			}
+
+
+			protected function btn_goto_clickHandler(event:MouseEvent):void
+			{
+				if(_cb_do == null) return;
+				_pgidx = parseInt(edt_pagenum.text);
+				_cb_do.call(getPageCtrl());
+			}
+
+		]]>
+	</fx:Script>
+	<s:Label text="共"/>
+	<s:Label text="{_rowcount}"/>
+	<s:Label text="条记录"/>
+	<mx:Spacer height="11" width="12"/>
+	<s:Label text="{_pgcount}" verticalAlign="middle"/>
+	<s:Label text="页"/>
+	<s:Button x="36" y="17" label="&lt;&lt;" width="54" id="btn_prev" click="btn_prev_clickHandler(event)"/>
+	<s:Label text="{_pgidx}"/>
+	<s:Button x="165" y="17" label="&gt;&gt;" width="51" id="btn_next" click="btn_next_clickHandler(event)"/>
+	<s:Button label="转到" width="56" id="btn_goto" click="btn_goto_clickHandler(event)"/>
+	<s:TextInput width="52" id="edt_pagenum"/>
+	<s:Label text="页"/>
+</s:Group>

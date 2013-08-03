@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   currentState="LoginFirst" 
+			   xmlns:org="http://openscales.org"
+			    xmlns:ns1="*" preinitialize="init()" preloader="com.sw2us.newgis.ui.Preloader" minWidth.LoginFirst="600" minHeight.LoginFirst="400" width.MainPlay="100%" height.MainPlay="100%" width.LoginFirst="100%" height.LoginFirst="100%" backgroundColor.LoginFirst="#FFFFFF">
+	<fx:Style source="newgis.css"/>
+
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="LoginFirst"/>
+	</s:states>
+	
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<s:method name="doLogin" result="doLogin_result(event)" fault="onfault(event)"/>
+			<s:method name="doLogout" result="doLogout_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+	
+<fx:Script>
+	<![CDATA[
+		import com.sw2us.newgis.AppCore;
+		import com.sw2us.newgis.AppUser;
+		
+		import mx.controls.Alert;
+		import mx.core.FlexGlobals;
+		import mx.events.CloseEvent;
+		import mx.managers.PopUpManager;
+		import mx.rpc.events.FaultEvent;
+		import mx.rpc.events.ResultEvent;
+		
+		import org.openscales.core.StringUtils;
+		
+		
+		protected function init():void{
+			AppCore.instance();
+			var s:CSSStyleDeclaration;
+			var k:FlexGlobals;
+			
+			var sparkTitleWindowCSS:CSSStyleDeclaration=FlexGlobals.topLevelApplication.styleManager.getStyleDeclaration("spark.components.Panel");  
+			sparkTitleWindowCSS.setStyle("modalTransparencyColor", 'white');  
+			sparkTitleWindowCSS.setStyle("modalTransparencyBlur", 0);  
+			sparkTitleWindowCSS.setStyle("modalTransparency", 0);  
+			
+			var alertCSS:CSSStyleDeclaration=FlexGlobals.topLevelApplication.styleManager.getStyleDeclaration("mx.controls.Alert");  
+			alertCSS.setStyle("modalTransparencyColor", 'white');  
+			alertCSS.setStyle("modalTransparencyBlur", 0);    
+			alertCSS.setStyle("modalTransparency", 0);  
+			
+			pyamf.uri = AppCore.instance().getAmfServerUrl();	
+		}
+
+		protected function btnSettings_clickHandler(event:MouseEvent):void{
+			var form:uiPaneSystemSetting = uiPaneSystemSetting(PopUpManager.createPopUp(this,uiPaneSystemSetting,true));					
+			form.show();
+		}
+
+
+		protected function btnExit_clickHandler(event:MouseEvent):void
+		{
+			Alert.show("要离开吗?","提示",Alert.YES | Alert.CANCEL,this,onalert_exit);
+			
+		}
+		
+		private function onalert_exit(event:CloseEvent):void{
+			var e:CloseEvent;
+			if( event.detail != Alert.YES){
+				return;
+				//adminserver.deleteNews(0,parseInt(dg.selectedItem.id));
+			}
+			paneGisReal.onSysExit();
+			
+			server.doLogout();
+			navigateToURL(new URLRequest("javascript:location.reload();"),"_self");
+
+			
+			//ExternalInterface.call("function closeWindow() { window.close(); }"); 
+			//navigateToURL(new URLRequest("javascript:window.close();"),"_self");
+			
+			
+			//ExternalInterface.call("test_close");
+			//ExternalInterface.call("window.close");
+			/*
+			var u:Object;
+			u = AppCore.instance().getAppUser().params.user;
+			var s:Object;
+			if( u.delta.save_env ){
+				var d:Object = new Object({
+					env:{map:}
+				});
+				d.env = new Object({});
+				
+			}
+			s = u.delta.last_status;
+			s.map.lonlat
+			s.map.zoomlevel
+			*/
+			
+			
+		}
+
+		protected function button1_clickHandler(event:MouseEvent):void
+		{
+			
+			server.doLogin(this.edtUser.text,this.edtPasswd.text);
+		}
+		
+		
+		private function onfault(event:FaultEvent):void{
+			Alert.show(event.fault.faultDetail);
+		}	
+		
+		private function doLogout_result(event:ResultEvent):void{
+			var cr:Object = event.result;
+			if(cr.succ==false){
+				Alert.show(cr.msg);
+				return;
+			}
+			this.currentState = "LoginFirst";
+		}
+		
+		private function doLogin_result(event:ResultEvent):void{
+			var cr:Object = event.result;
+			if(cr.succ==false){
+				Alert.show(cr.msg);
+				return;
+			}
+			var au:AppUser;
+			var r:Object = cr.result.user;
+			au = new AppUser();
+			au.id = r.id;
+			au.user = r.user;
+			au.name = r.name;
+			au.token = cr.result.token;			
+			
+			AppCore.instance().setAppUser(au);
+			AppCore.instance().setAppParams(cr.result.params);
+			this.currentState = "MainPlay";
+			
+			var now:Date = new Date();			
+			txtUser.text = r.name ;
+			var time:Date = new Date();
+			
+			txtLoginTime.text =StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds); 
+			
+			
+		}
+
+
+		protected function btnAlarmSetting_clickHandler(event:MouseEvent):void
+		{
+			var form:uiFormSystemSetting = uiFormSystemSetting(PopUpManager.createPopUp(this,uiFormSystemSetting,true));					
+			form.show();
+		}
+
+
+
+		protected function btnIphone_clickHandler(event:MouseEvent):void
+		{
+			
+			AppCore.instance().getHostBaseUrl()
+			var url:String="mobile/GpsBady.iphone.rar"; //ApplicationMgr.instance().getHostBaseUrl();  
+			var request:URLRequest=new URLRequest(url);  
+			navigateToURL(request,"_blank");  
+		}
+
+
+		protected function btnAndroid_clickHandler(event:MouseEvent):void
+		{
+			AppCore.instance().getHostBaseUrl()
+			var url:String="mobile/GpsBady.android.rar"; //ApplicationMgr.instance().getHostBaseUrl();  
+			var request:URLRequest=new URLRequest(url);  
+			navigateToURL(request,"_blank");
+		}
+
+	]]>
+</fx:Script>
+	
+
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	<s:layout.LoginFirst>
+		<s:VerticalLayout/>
+	</s:layout.LoginFirst>
+	<s:controlBarContent.MainPlay>
+		<fx:Array></fx:Array>
+	</s:controlBarContent.MainPlay>
+	<s:HGroup includeIn="MainPlay" width="100%" height="44">
+		<s:BorderContainer width="100%" height="45" 
+						    backgroundColor="#767471" id="btnMessage">
+			<!--
+						    backgroundImage="@Embed(source='assets/logo_top.png')"
+							 backgroundImageFillMode="repeat"
+			-->
+			<!--
+			<s:backgroundFill> 
+				<s:SolidColor 
+					color="white" 
+					alpha="0.9"/> 
+			</s:backgroundFill> 
+			-->
+			
+			<s:Label x="61" y="15" text="Gps监控系统" fontSize="28" color="#982323" fontWeight="bold" verticalAlign="middle" textAlign="center"/>			
+			<s:Button label="退出" id="btnExit" click="btnExit_clickHandler(event)" width="60" right="4" bottom="15"/>
+			<s:Button label="设置" id="btnSettings" click="btnSettings_clickHandler(event)" width="60" right="67" bottom="15"/>
+			<mx:Image x="0" y="-1" source="assets/sw2us_logo.png" width="55" height="54"/>
+			<s:Button y="17" label="报警" width="60" right="130" id="btnAlarmSetting" click="btnAlarmSetting_clickHandler(event)"/>
+			<s:ButtonBar x="279" y="16" dataProvider="{viewstack1}" height="24"/>
+		</s:BorderContainer>
+		
+	</s:HGroup>
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<mx:ViewStack id="viewstack1" width="100%" height="100%" >
+			<s:NavigatorContent label="实时监控" width="100%" height="100%" id="GisRealView">
+				<s:layout>
+					<s:VerticalLayout/>
+				</s:layout>
+				<ns1:PaneGisRealView width="100%" height="100%" id="paneGisReal">
+					<ns1:layout>
+						<s:VerticalLayout/>
+					</ns1:layout>
+				</ns1:PaneGisRealView>
+			</s:NavigatorContent>
+			<s:NavigatorContent label="历史回放" width="100%" height="100%" id="GisReplayView">
+				<s:layout>
+					<s:VerticalLayout/>
+				</s:layout>
+				<ns1:PaneGisReplayView height="100%" width="100%"/>
+			</s:NavigatorContent>
+
+		
+		</mx:ViewStack>
+	</s:HGroup>
+	<s:HGroup includeIn="MainPlay" width="100%" height="29" verticalAlign="middle">
+		<s:Label text="用户:"/>
+		<s:Label text="未登陆" width="89" id="txtUser" color="#C5B9B7"/>
+		<s:Label text="访问时间:"/>
+		<s:Label text="yyyy-mm-dd" width="136" id="txtLoginTime" color="#AAA1A1"/>
+		<mx:Spacer width="100%" height="20"/>
+		<s:Label text="上海全格信息科技有限公司  © 2009-2012 sw2us.com  v1.3.2" color="#D3D7DA"/>
+		<mx:Spacer width="100%" height="20"/>
+		<mx:LinkButton label="帮助"/>
+	</s:HGroup>
+	<s:HGroup includeIn="LoginFirst" width="200" height="50%">
+	</s:HGroup>
+	
+		<s:HGroup includeIn="LoginFirst" width="100%" height="220" verticalAlign="middle">
+			<mx:Spacer width="100%" height="20"/>
+			<s:BorderContainer includeIn="LoginFirst" width="460" height="100%">
+				<mx:Image includeIn="LoginFirst" width="133" height="117" source="assets/login_earth.jpg" x="5" y="7"/>
+				<s:Label includeIn="LoginFirst" x="110" y="128" text="用户名" fontSize="14" fontFamily="Arial" fontWeight="bold" chromeColor="#0E0D0D" backgroundAlpha="1.0" color="#080808"/>
+				<s:Button includeIn="LoginFirst" x="338" y="153" label="进入系统" fontSize="14" fontFamily="Arial" fontWeight="bold" click="button1_clickHandler(event)" chromeColor="#E95E02" height="28" tabIndex="2" id="btnLogin"/>
+				<s:TextInput includeIn="LoginFirst" x="174" y="156" fontSize="14" displayAsPassword="true" fontFamily="Arial" fontWeight="bold" contentBackgroundColor="#EFE9E9" tabIndex="1" id="edtPasswd" color="#F40A0A" text="111111"/>
+				<s:TextInput includeIn="LoginFirst" x="174" y="124" fontSize="14" displayAsPassword="false" fontFamily="Arial" fontWeight="bold" contentBackgroundColor="#EFE9E9" tabIndex="0" id="edtUser" color="#F40A0A" text="tiger"/>
+				<s:Label includeIn="LoginFirst" x="118" y="164" text="口令" fontSize="14" fontFamily="Arial" fontWeight="bold" color="#0A0A0A"/>
+				<s:Label x="180" y="54" text="Gps位置服务系统" fontSize="30" fontWeight="bold" color="#1126EA"/>
+				<s:Label x="190" y="89" text="© 2009-2012 sw2us.com  v1.3.3" fontWeight="normal" fontSize="14" color="#413C3C"/>
+				<s:Label x="104" y="198" text="Android" color="#2987D6" fontSize="12" textDecoration="underline" id="btnAndroid" click="btnAndroid_clickHandler(event)"/>
+				<s:Label x="32" y="197" text="IPhone" fontSize="12" color="#368FE2" textDecoration="underline" id="btnIphone" click="btnIphone_clickHandler(event)"/>
+				<mx:Image x="63" y="6" source="assets/satellite.png" width="103" height="102"/>
+				<mx:Image x="8" y="185" source="assets/applelogo2.png" width="28" height="24"/>
+				<mx:Image x="80" y="190" source="assets/android_128x128-32.png" width="21" height="26"/>
+				<s:Label x="10" y="168" text="客户端下载" color="#5D5858" fontSize="12"/>
+			</s:BorderContainer>
+			<mx:Spacer width="100%" height="20"/>
+		</s:HGroup>
+	<s:HGroup width="200" height="50%" includeIn="LoginFirst">	
+	</s:HGroup>
+</s:Application>

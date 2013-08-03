@@ -1,0 +1,1 @@
+D:\Projects\newgis\flex\newgis\src>convert ao_car_180.png -resize 24x24 -quality 100 ao_car_24x24_180.png

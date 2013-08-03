@@ -1,0 +1,1666 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300"
+		 creationComplete="init()" width.MainPlay="100%" height.MainPlay="100%"
+		 xmlns:org="http://openscales.org"
+		  xmlns:fxg="assets.fxg.*" xmlns:ui="com.sw2us.newgis.ui.*" xmlns:ns1="*">
+	
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<s:method name="getActiveObjectList" result="getActiveObjectList_result(event)" fault="onfault(event)"/>
+			<s:method name="getActiveObjectListWithGroup" result="getActiveObjectListWithGroup_result(event)" fault="onfault(event)"/>			
+			<s:method name="queryActiveObjectByName" result="queryActiveObjectByName_result(event)" fault="onfault(event)"/>
+			<s:method name="queryVisitedPointList" result="queryVisitedPointList_result(event)" fault="onfault(event)"/>
+			<s:method name="createVisitedPoint" result="createVisitedPoint_result(event)" fault="onfault(event)"/>
+			<s:method name="updateVisitedPoint" result="updateVisitedPoint_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteVisitedPoint" result="deleteVisitedPoint_result(event)" fault="onfault(event)"/>
+			<s:method name="getActiveObjectInfo" result="getActiveObjectInfo_result(event)" fault="onfault(event)"/>
+			<s:method name="getSystemParamList" result="getSystemParamList_result(event)" fault="onfault(event)"/>
+			<s:method name="getAoTrackPathNearestTime" result="getAoTrackPathNearestTime_result(event)" fault="onfault(event)"/>
+			<s:method name="convertXy_g2m" result="convertXy_g2m_result(event)" fault="onfault(event)"/>
+			<s:method name="getUserInfo" result="result_getUserInfo(event)" fault="onfault(event)"/>
+			<s:method name="getNoticeItem" result="result_getNoticeItem(event)" fault="onfault(event)"/>
+			<s:method name="ctrlset_reset" result="ctrlset_reset_result(event)" fault="onfault(event)"/>
+			<s:method name="ctrlset_startListen" result="ctrlset_startListen_result(event)" fault="onfault(event)"/>
+			
+			<s:method name="getBarrierList" result="getBarrierList_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteBarrier" result="deleteBarrier_result(event)" fault="onfault(event)"/>
+			
+			<s:method name="getAsiList" result="getAsiList_result(event)" fault="onfault(event)"/>
+			<s:method name="attachAsi" result="attachAsi_result(event)" fault="onfault(event)"/>
+			<s:method name="detachAsi" result="detachAsi_result(event)" fault="onfault(event)"/>
+			<s:method name="getAsiListOfAo" result="getAsiListOfAo_result(event)" fault="onfault(event)"/>
+			
+			<s:method name="getUserParams" result="getUserParams_result(event)" fault="onfault(event)"/>
+			<s:method name="setUserParams" result="setUserParams_result(event)" fault="onfault(event)"/>
+			
+			
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.*;
+			import com.sw2us.newgis.*;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.map.MapAo;
+			import com.sw2us.newgis.map.MapAoLayer;
+			import com.sw2us.newgis.map.MapAoMarker;
+			import com.sw2us.newgis.map.MapAoPathArrow;
+			import com.sw2us.newgis.map.MapBarrier;
+			import com.sw2us.newgis.ui.DialogInputLineText;
+			import com.sw2us.newgis.ui.uiMapGridItem;
+			import com.sw2us.newgis.util.DataSerial;
+			
+			import flashx.textLayout.tlf_internal;
+			
+			import gisadmin.gisadmin;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.ListEvent;
+			import mx.events.ResizeEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import newgis.GpsData_t;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.events.FeatureEvent;
+			import org.openscales.core.feature.CustomMarker;
+			import org.openscales.core.feature.LineStringFeature;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.core.style.Style;
+			import org.openscales.geometry.LineString;
+			import org.openscales.geometry.Point;
+			import org.openscales.geometry.basetypes.*;
+			
+			import spark.events.IndexChangeEvent;
+			
+			public var _aolist:ArrayCollection = null; // ao 对象列表
+
+			private var _curNotice:Object = null; //
+			public var _currAo:ActiveObject = null;	//当前活动Ao对象
+			private var _aolayer:MapAoLayer;
+			private var _barrierlayer:FeatureLayer = null; //显示围栏的层
+			//[Bind]
+			//private var _currAoAttributes:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			[Embed(source="./assets/ao_car_24x24_180.png")] 
+			public var aoItem:Class;
+			
+			[Bindable]
+			[Embed(source="./assets/gourp24x24.png")] 
+			public var groupItem:Class;
+			
+			[Bindable]
+			[Embed(source="assets/marker.png")] private var _icon_gismarker:Class;
+			
+			private var _gismarker:CustomMarker = null;
+			
+			
+			public static var mainwindow:PaneGisRealView = null;
+			
+			[Bindable]
+			private var _overview_data:ArrayCollection = new ArrayCollection ([
+				{country:"美国",gold:35,sliver:20,bronze:10},
+				{country:"中国",gold:60,sliver:25,bronze:10},
+				{country:"日本",gold:2,sliver:10,bronze:8}
+			]);
+			
+			[Bind]
+			private var _currAoGspTrack:ArrayCollection = new ArrayCollection(); //gps跟踪信息
+			
+			
+			private function showMoreInfo(data:Object, field:String, index:Number, percentValue:Number):String{
+				//data表示传进来的整个对象，你可以访问他的各种属性了.field表示目前你用了哪个属性（这里是gold）.
+				//index是顺序（也就是美国0，中国1,日本2）,percentValue是百分比(他的返回值很长，比如36.0815241424);
+				var percent:String = percentValue.toString().substr(0,6);
+				return data.country + "\n 金牌总数：" + data.gold + "\n 银牌总数：" + data.sliver + "\n 百分比：" + percent + "%";
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				//var ch:ActiveObjectChannel = new ActiveObjectChannel();
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail,"系统错误!");
+			}	
+			
+			private function result_getUserInfo(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					//Alert.show(cr.msg);
+					return;
+				}
+				AppCore.instance().getAppUser().d = cr.result; //参见gisserver.py:: getUserParameters()
+				
+//				var dgw:Object;
+//				dgw = AppCore.instance().getDgwServer();
+				
+//				AppCore.instance().getAoCollector().getAoChannel().addEventListener(ActiveObjectChannelEvent.CHANNEL_OPENED,onAoChannelOpen);
+//				AppCore.instance().getAoCollector().getAoChannel().open(dgw.host,dgw.port);
+			}
+			
+			private function ctrlset_reset_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				Alert.show("复位命令发送成功！","提示");
+			}
+			
+			private function ctrlset_startListen_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				Alert.show("监听命令发送成功！","提示");
+			}
+			
+			private function getBarrierList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				this.dgBarriers.dataProvider = new ArrayCollection( cr.result);
+				//如果当前显示围栏，则显示出来所有围栏矩形框
+				showBarriers();
+			}
+			
+			
+			private var _barriers:Array = new Array;
+			
+			private function showBarriers():void{
+				var n:int;
+				var b:MapBarrier;
+				
+				for(n=0;n<_barriers.length;n++){
+					b = _barriers[n] as MapBarrier;
+					_barrierlayer.removeFeature(b);
+					b.destroy();
+				}
+				_barriers = new Array();
+					
+				if( ckShowBarriers.selected ){
+					var coll:ArrayCollection = dgBarriers.dataProvider as ArrayCollection;
+					if( coll != null){
+						for(n=0;n< coll.length;n++){
+							b = new MapBarrier(this._barrierlayer);
+							var s:String = coll.getItemAt(n).wkt as String;
+							var wkt:Array;
+							wkt = s.split(",")
+							var x:Number,y:Number,w:Number,h:Number;
+							x = parseFloat(wkt[0]);
+							y = parseFloat(wkt[1]);
+							w = parseFloat(wkt[2]);
+							h = parseFloat(wkt[3]);
+							var bnd:Bounds = new Bounds( x,y,x+w,y+h);
+							b.setRect(bnd);
+							b.data = coll.getItemAt(n);
+							_barriers.push(b);
+						}
+					}
+				}else{
+					
+				}
+			}
+			
+			private function deleteBarrier_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				Alert.show("删除成功!","提示");
+				this.onSearchBarrier();
+			}
+			
+			
+			private function result_getNoticeItem(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					//Alert.show(cr.msg);
+					return;
+				}
+				if( cr.result == null){
+					return;
+				}
+				this.txtNoticeTitle.text = cr.result.topic;
+				this.txtNoticeContent.text = cr.result.content;	
+				//this.txtNoticeContent
+				_curNotice = cr.result;
+			}
+			
+			
+			private function getActiveObjectList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}						
+				_aolist = new ArrayCollection( cr.result); //必须是collection类型才可以刷新	
+				//
+				for(var n:int=0;n<_aolist.length;n++){					
+					var ao:ActiveObject = new ActiveObject(_aolist[n]);						
+					var mao:MapAo = new MapAo(ao,_aolayer);					//地图对象			
+					AppCore.instance().getAoCollector().addActiveObject(ao);
+					
+				}
+				txtAoNumNormal.label = _aolist.length.toString();
+				txtAoTotal.text = _aolist.length.toString();
+					
+				AppCore.instance().getAoCollector().addEventListener(ActiveObjectEvent.AO_DATA,onAoData);
+				//var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(1);
+				//ao.setLocation(121.47862,30.917605);
+			}
+			
+			//捕捉collector上过来的ao数据包
+			private function onAoData(event:ActiveObjectEvent):void{
+				var d:ActiveObjectData = event.data;
+				if( d.ao != this._currAo){
+					return;
+				} 
+				this.showAoTrackStatus(_currAo);
+				if( this.ckCenter.selected == true){
+					this.setMapCenterAo(d.ao);
+				}	
+				
+			}
+			
+			//ao对象分组 显示到ao树
+			private function getActiveObjectListWithGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"警告");
+					return;
+				}	
+				//var xml:XMLListCollection = cr.result as XMLListCollection;
+				//var xml:XMLList = cr.result as XMLList;
+				var s:String = cr.result as String;
+				var xml:XMLListCollection = new XMLListCollection(new XMLList(s));
+				aoTree.dataProvider=xml;
+				//aoTree.expandItem(aoTree.firstVisibleItem,true);
+				for each(var item:XML in xml.elements("Group") )					
+					aoTree.openItems = item; 										
+				//_aolist = new ArrayCollection( cr.rs); //必须是collection类型才可以刷新				
+			}
+			
+			//获取最近时间段的行驶轨迹
+			private function getAoTrackPathNearestTime_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"警告");
+					return;
+				}	
+				//var s:String = cr.result.rs as String;
+				//var d:Object = com.sw2us.newgis.util.DataSerial.unjsonzlib(s);
+				var gpslist:Array = cr.result.rs as Array;
+				if( _currAo == null){
+					return;
+				}
+				if(_currAo.getId() !=  cr.result.aoid){ //返回数据判断
+					return;
+				}
+				var gpsarray:Array= new Array();
+				for(var n:int =0 ;n<gpslist.length;n++){
+					var d:Object = gpslist[n] as Object;
+					var gps:newgis.GpsData_t = new GpsData_t();
+					gps.lon = d.lon;
+					gps.lat = d.lat;
+					gps.direction = d.angle;
+					gps.speed = d.speed;
+					gps.time = d.gpstime;
+					gps.extra.power = d.power;
+					gps.extra.acc = d.acc;
+					gps.extra.miles = d.miles;
+					gps.extra.av = d.av;
+					gpsarray.push(gps);						
+				}
+				_currAo.getDataQueue().clearData(ActiveObjectData.GPS);
+				_currAo.getDataQueue().pushDataList(cr.result.module,gpsarray);
+				var mao:MapAo = this._aolayer.getMapAoById(_currAo.getId());
+				mao.showPath(true);
+				
+			}
+			
+			
+			private function queryActiveObjectByName_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}				
+				this.dgAolist.dataProvider = new ArrayCollection(cr.result);							
+			}
+			
+			private function queryVisitedPointList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}					
+				this.dgVisitPoints.dataProvider =  new ArrayCollection( cr.result); 
+				//_aolist = new ArrayCollection( cr.rs); //必须是collection类型才可以刷新				
+			}
+			
+			private function createVisitedPoint_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误!");
+					return;
+				}
+				Alert.show("新增热点成功!");
+				btnVisitPointSearch_clickHandler(null);
+			}
+			
+			private function updateVisitedPoint_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}										
+			}
+			
+			private function deleteVisitedPoint_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				btnVisitPointSearch_clickHandler(null);
+			}
+			
+			private function getActiveObjectInfo_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}										
+			}			
+			
+			private function getAsiList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				this.cbAsiList.dataProvider = new ArrayCollection( cr.result);
+				cbAsiList.selectedIndex = 0;
+			}	
+			
+			private function attachAsi_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				Alert.show("添加告警项成功!","提示");
+				if(_currAo!=null){
+					server.getAsiListOfAo(_currAo.getId());
+				}
+			}	
+			
+			private function detachAsi_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}	
+				Alert.show("删除告警项成功!","提示");
+				if(_currAo!=null){
+					server.getAsiListOfAo(_currAo.getId());
+				}
+			}	
+			
+			private function getAsiListOfAo_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				
+				this.dgAoAsiList.dataProvider = new ArrayCollection(cr.result);
+			}	
+			
+			private function getUserParams_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					//Alert.show(cr.msg,"错误");
+					return;
+				}
+				var params:Object = cr.result;
+				AppCore.instance().getAppUser().params = params;
+				if( params.hasOwnProperty("last_map_location")){
+					var loc:Object = params.last_map_location;
+					fxmap.map.moveTo( new Location(loc.lon,loc.lat),loc.zoom);
+				}
+				
+			}	
+			
+			private function setUserParams_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					//Alert.show(cr.msg,"错误");
+					return;
+				}
+				
+				
+			}	
+			
+			public function onSysExit():void{
+				
+				var params:Object={
+					last_map_location:
+						{lon:fxmap.map.center.lon,lat:fxmap.map.center.lat,zoom:fxmap.map.zoom}
+				};
+				server.setUserParams(params);
+				
+			}
+			
+			
+			
+			private function convertXy_g2m_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}		
+				var loc:Location ;
+				loc = new Location(cr.result.x,cr.result.y);
+				fxmap.map.moveTo(loc);
+				
+				_gismarker.geometry = new org.openscales.geometry.Point(loc.lon,loc.lat);
+				_gismarker.visible = true;
+				_gismarker.draw();
+			}
+			
+			private function getSystemParamList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}				
+				
+				AppCore.instance().sysProps = cr.result;
+			}		
+			
+			/**
+			 * 显示ao属性信息
+			 */ 
+			private function showAoProps(ao:ActiveObject):void{
+				var attrs:Array ;
+				var o:Object;
+				var gps:Object;
+				var str:String;
+				gps = ao.getGpsData();
+				if( gps ==null){
+					return ;
+				}
+				attrs = new Array();				
+				o = new Object();	o.name = "名称";	o.value = ao.getInfo().name;	attrs.push(o);				
+				
+				o = new Object();	o.name = "设备类型";	o.value = ao.getInfo().devtype;	attrs.push(o);	
+				//var time:Date = new Date(gps.systime*1000); // as is million seconds
+				//str = StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds);
+				o = new Object();	o.name = "电话";	o.value =ao.getInfo().telphone;	attrs.push(o);
+				//str = StringUtils.sprintf("%.4f",gps.lon);
+				o = new Object();	o.name = "联系人";	o.value = ao.getInfo().contact;	attrs.push(o);
+				str = StringUtils.sprintf("%.4f",gps.lat);
+				o = new Object();	o.name = "地址";	o.value = ao.getInfo().address;	attrs.push(o);
+				//str = StringUtils.sprintf("%d公里/小时",gps.speed);
+				var time:Date ;
+				time = ao.getInfo().active_time;
+				if(time){
+					str = StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds);
+					o = new Object();	o.name = "开通时间";	o.value = str;		attrs.push(o);
+				}
+				time = ao.getInfo().expire_time;
+				if(time){
+					str = StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds);
+					o = new Object();	o.name = "到期时间";	o.value = str;		attrs.push(o);
+				}
+				//aoAttributes.dataProvider =new ArrayCollection(attrs);
+				//aoAttributes.dataProvider
+				this.aoAttributes.dataProvider = new ArrayCollection(attrs);;
+				
+			}
+			
+			private function showAoTrackStatus(ao:ActiveObject):void{
+				//显示ao属性			
+				var attrs:Array ;
+				var o:Object;
+				var gps:newgis.GpsData_t;
+				var str:String;
+				gps = ao.getGpsData();
+				if( gps ==null){
+					return ;
+				}
+				attrs = new Array();				
+				o = new Object();	o.name = "名称";	o.value = ao.getInfo().name;	attrs.push(o);				
+				
+				o = new Object();	o.name = "通信服务器";	o.value = ao.getInfo().dasid;	attrs.push(o);	
+				var time:Date = new Date(gps.time*1000); // as is million seconds
+				str = StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds);
+				o = new Object();	o.name = "时间";	o.value =str;	attrs.push(o);
+				str = StringUtils.sprintf("%.4f",gps.lon);
+				o = new Object();	o.name = "经度";	o.value = str;	attrs.push(o);
+				str = StringUtils.sprintf("%.4f",gps.lat);
+				o = new Object();	o.name = "维度";	o.value = str;	attrs.push(o);
+				str = StringUtils.sprintf("%d公里/小时",gps.speed);
+				o = new Object();	o.name = "速度";	o.value = str;		attrs.push(o);
+				str = "打开";
+				if( gps.extra.power ==0){
+					str = "关闭";
+				}
+				o = new Object();	o.name = "电源状态";	o.value = str;		attrs.push(o);
+				str = "打开";
+				if( gps.extra.acc ==0){
+					str = "关闭";
+				}
+				o = new Object();	o.name = "发动机状态";	o.value = str;		attrs.push(o);
+				str = StringUtils.sprintf("%d公里",gps.extra.miles);
+				o = new Object();	o.name = "里程计数";	o.value = str;	attrs.push(o);
+				
+				
+				//o = new Object();	o.name = "可见星数";	o.value = gps.satenum;	attrs.push(o);
+				//o = new Object();	o.name = "定位星数";	o.value = gps.sateused;	attrs.push(o);
+				
+				//aoAttributes.dataProvider =new ArrayCollection(attrs);
+				aoStatus.dataProvider =new ArrayCollection(attrs);
+			}
+			
+			//设置当前焦点活动Ao对象
+			private function setCurrentActiveObject(ao:ActiveObject):void{
+				//清除显示轨迹和居中
+				var hours:int;
+				var gap:int;
+				if(_currAo == ao){
+					return;
+				}
+				if(_currAo){ 
+					var mao:MapAo = this._aolayer.getMapAoById(_currAo.getId());
+					mao.showPath(false); //取消显示轨迹
+					_currAo.getDataQueue().clearData(ActiveObjectData.GPS); //取消对象的缓冲轨迹数据
+					paneFocusAo.title="选择对象";
+					/*
+					 gap = parseInt(cbxTimeTickGap.selectedItem.value);
+					 hours = parseInt(cbxHours.selectedItem.value)
+						
+					 
+					cbxHours.selectedIndex = 0;
+					cbxTimeTickGap.selectedIndex = 0;
+					_currAo.setOption("trackpath.timegap",gap);
+					_currAo.setOption("trackpath.duration",hours);
+					*/
+				}
+				_currAo = ao;
+				paneFocusAo.title="当前对象："+ _currAo.getInfo().name;
+				/*
+				gap = parseInt(_currAo.getOption("trackpath.timegap","0").toString());
+				hours = parseInt( _currAo.getOption("trackpath.duration","0").toString() );
+				cbxHours.selectedIndex = hours;
+				cbxTimeTickGap.selectedIndex = gap;
+				*/
+				showAoTrackStatus(ao); //显示运行状态  
+				showAoProps(ao);	//显示属性
+				//默认都是以下行为
+				this.changeTrackPathShow();
+				this.changeTrackTimeGap();
+				//加载报警项 
+				server.getAsiListOfAo(ao.getId());
+				
+			}
+			
+			private function test():void{
+				 
+				var path:LineStringFeature ;				
+				var ptset:Vector.<Number> = new Vector.<Number>();
+				ptset.push( 121.4942); ptset.push(31.1185);
+				ptset.push( 121.4942); ptset.push(31.0185);
+				//path = new LineStringFeature(new LineString(
+				var lstr:LineString = new LineString(ptset);
+				var len:Number;
+				len = lstr.length;
+				
+				path = new LineStringFeature(lstr,null,Style.getDefaultLineStyle());
+				//path.draw();
+				_aolayer.addFeature(path);
+				
+				//var ar:MapAoPathArrow = new MapAoPathArrow(_aolayer,new Location(121.4942,31.1185),
+				//			new Location(121.4942,31.0185));
+				
+				//path.draw();
+				//var v:Boolean = path.onScreen();
+				 
+			}
+			
+			//通道建立
+			private function onAoChannelOpen(evt:ActiveObjectChannelEvent):void{
+				var user:AppUser = AppCore.instance().getAppUser();
+				var m:Object = new Object();
+				m.msg ="user_registerreq_0";
+				m.id =  user.d.id; //1; //user.id;
+				m.user = user.user;
+				m.passwd = user.passwd;
+				evt.channel.sendMessage(m);				
+			}
+			
+			private function init():void{
+				//AppCore.instance().setAmfServerUrl("http://localhost:8520/gateway/");
+				//	layerchina.url  = AppCore.instance().getMapServerUrl();
+				mainwindow = this;
+				/*
+				var dgw:Object;
+				dgw = AppCore.instance().getDgwServer();
+
+				AppCore.instance().getAoCollector().getAoChannel().addEventListener(ActiveObjectChannelEvent.CHANNEL_OPENED,onAoChannelOpen);
+				AppCore.instance().getAoCollector().getAoChannel().open(dgw.host,dgw.port);
+				*/
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				
+				pyamf.uri = AppCore.instance().getAmfServerUrl();				
+				
+				
+				_barrierlayer = new FeatureLayer("barriers"); //2012.6.5 添加围栏层
+				fxmap.map.addLayer(_barrierlayer);
+				
+				_aolayer = new MapAoLayer(fxmap.map);	//添加ao活动对象层
+				fxmap.map.addLayer(_aolayer);
+				
+				_gismarker = CustomMarker.createDisplayObjectMarker(new _icon_gismarker(),new Location(121.1,31));
+				_aolayer.addFeature(_gismarker);				
+				_gismarker.visible = false;
+				
+				zoomindicator.initMap(fxmap.map);
+				this.onAfterLogin();
+				
+				//fxmap.map.addEventListener(MouseEvent.DOUBLE_CLICK,fxmap_doubleClickHandler);
+				//fxmap.map.addEventListener(MouseEvent.MOUSE_DOWN,onMapMouseDown);
+				
+				//test();
+				//btnVisitPointSearch_clickHandler(null);
+				//btnAoSearch_clickHandler(null);
+			}
+			
+			private function onMapMouseDown(event:MouseEvent):void{
+				Alert.show("mouse down event");
+			}
+			
+			//登录成功调用
+			private function onAfterLogin():void{
+				server.getSystemParamList();
+				server.getActiveObjectList();
+				server.getActiveObjectListWithGroup();
+				server.getUserInfo();
+				server.getNoticeItem(-1);
+				server.getUserParams();
+				/*
+				var mkr:CustomMarker = CustomMarker.createUrlBasedMarker("http://localhost:8510/medias/images/4-katoo-car-01.png",
+				new Location(121.47862,30.917605) );
+				var layer:FeatureLayer = aolayer.layer as FeatureLayer;
+				layer.addFeature(mkr);
+				*/
+				//设置feature点选事件
+				fxmap.map.addEventListener(FeatureEvent.FEATURE_CLICK,onAoClick);
+				
+			}
+			
+			//选择焦点ao对象
+			private function onAoClick(event:FeatureEvent):void{
+				var marker:MapAoMarker = event.feature as MapAoMarker;
+				if(marker){
+					marker.getMapAo().setFocus(true);
+					setCurrentActiveObject(marker.getMapAo().getActiveObject());
+					_aolayer.getMapAoById( this._currAo.getId()).setFocus(true); //显示为焦点ao
+				}
+			}
+			
+			private function onAoTreeItemChange(event:ListEvent):void{
+				/* var xml:XML =aoTree.selectedItem as XML; 
+				if(xml.@id == "0"){
+				return;
+				}
+				var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(parseInt(xml.@id));
+				setCurrentActiveObject(ao);
+				setMapCenterAo(ao); */
+			}
+			
+			//Ao对象地图居中
+			private function setMapCenterAo(ao:ActiveObject):void{
+				if(ao == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer.getMapAoById(ao.getId());
+				mao.moveCenter();
+			}
+			
+			private var vgcache:Array =[0,0];
+			protected function pright_clickHandler(event:MouseEvent):void
+			{
+				var w:int = vgright.width;				 
+				
+				vgright.width=vgcache[0];
+				vgcache[0] = w;
+				
+			}
+			
+			
+			protected function pleft_clickHandler(event:MouseEvent):void
+			{
+				var w:int = vgleft.width;				
+				vgleft.width = vgcache[1];
+				vgcache[1] = w;
+				
+				vgleft.visible = vgleft.width?true:false;
+				
+			}
+			
+			
+			protected function btnCreateVisitPoint_clickHandler(event:MouseEvent):void
+			{
+				DialogInputLineText.show(this,"","输入点名称:","新增热点",callback_VisitPointName_input);
+			}
+			
+			private function callback_VisitPointName_input(text:String):void{
+				//Alert.show(text);	
+				var vp:Object  =new Object();
+				text = org.openscales.core.StringUtils.trim(text);
+				if( text.length == 0){
+					Alert.show("必须输入访问点名称!","警告!");
+					return ;
+				}
+				vp.name = text;
+				vp.scalelevel = fxmap.map.zoom;
+				vp.lon = fxmap.map.center.lon;
+				vp.lat = fxmap.map.center.lat;
+				server.createVisitedPoint(vp);
+			} 
+			
+			
+			protected function btnDelVisitPoint_clickHandler(event:MouseEvent):void
+			{
+				if(dgVisitPoints.selectedItem == null){
+					Alert.show("请选择访问热点!","错误");
+					return;
+				}
+				
+				Alert.show("是否真的删除热点?","警告",Alert.YES | Alert.CANCEL,this,onalert_delVisitedPoint);
+				
+				
+			}
+			
+			private function onalert_delVisitedPoint(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteVisitedPoint(dgVisitPoints.selectedItem.id);
+				}
+			}
+			
+			protected function btnVisitPointSearch_clickHandler(event:MouseEvent):void
+			{
+				server.queryVisitedPointList(edtVisitPointName.text);
+			}
+			
+			
+			protected function dgVisitPoints_itemDoubleClickHandler(event:ListEvent):void
+			{
+				var loc:Location = new Location(dgVisitPoints.selectedItem.lon,dgVisitPoints.selectedItem.lat);
+				fxmap.map.center = loc;
+				fxmap.map.zoom = dgVisitPoints.selectedItem.zoom;
+				trace("zoom to:",dgVisitPoints.selectedItem.zoom);
+				
+			}
+			
+			//
+			protected function aoTree_itemDoubleClickHandler(event:ListEvent):void
+			{
+				/*
+				var xml:XML =aoTree.selectedItem as XML; 
+				if(xml.@id == "0"){ // group node's id equal 0
+				return;
+				}
+				var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(parseInt(xml.@id));
+				setCurrentActiveObject(ao);
+				*/
+			}
+			
+			
+			protected function aoTree_itemClickHandler(event:ListEvent):void
+			{
+				var xml:XML =aoTree.selectedItem as XML; 
+				if(xml.@id == "0"){
+					return;
+				}
+				var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(parseInt(xml.@id));
+				setCurrentActiveObject(ao);
+				setMapCenterAo(ao);
+			}
+			
+			protected function aolist_itemClickHandler(event:ListEvent):void
+			{	
+				var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(parseInt(dgAolist.selectedItem.id));
+				setCurrentActiveObject(ao);
+				setMapCenterAo(ao);
+			}
+			
+			
+			
+			
+			protected function btnAoSearch_clickHandler(event:MouseEvent):void
+			{
+				server.queryActiveObjectByName(this.edtAoName.text);
+			}
+			
+			
+			protected function ckCenter_clickHandler(event:MouseEvent):void
+			{
+				if(ckCenter.selected == true){ // 即可居中显示
+					this.setMapCenterAo(_currAo);
+				}
+			}
+			
+			//轨迹时间选择
+			protected function cbxHours_changeHandler(event:IndexChangeEvent):void
+			{
+				//var hours:int = parseInt(cbxHours.selectedItem.value);
+				
+				changeTrackPathShow();
+			}
+			
+			/**
+			 * 显示最近时间段内的行驶轨迹
+			 * 
+			 */
+			protected function changeTrackPathShow():void
+			{
+				if(this.cbxHours.selectedIndex != 0 && this.cbxTimeTickGap.selectedIndex ==0){
+					this.cbxTimeTickGap.selectedIndex=1;
+				}
+				
+				if(_currAo == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer.getMapAoById(_currAo.getId());
+				if(mao == null){
+					trace("changeTrackPathShow:: getMapAo() failed!");
+					return;
+				}
+				//_currAo.getDataQueue().setCachedPolicy( AoDataQueue.CachedPolicy_Size);
+				_currAo.getDataQueue().setCachedPolicy( AoDataQueue.CachedPolicy_Time); //设置缓冲策略以时间为基准
+				_currAo.getDataQueue().clearData(ActiveObjectData.GPS);
+				
+				_currAo.setOption("trackpath.duration",cbxHours.selectedIndex); //设置当前车的轨迹时长 
+				var hours:int = parseInt(cbxHours.selectedItem.value);
+				
+				if( hours ==0){ //关闭轨迹显示
+					mao.showPath(false);
+					return ;
+				}
+				
+				_currAo.getDataQueue().setCachedPolicy( AoDataQueue.CachedPolicy_Time);
+				_currAo.getDataQueue().setCachedTime( hours * 3600);		
+				
+				server.getAoTrackPathNearestTime( _currAo.getId(),hours);
+				mao.showPath();
+				changeTrackTimeGap();
+			}
+			
+			
+			 
+			//更改轨迹时间标记间隔
+			protected function changeTrackTimeGap():void
+			{
+				var secs:int;
+				secs = parseInt(cbxTimeTickGap.selectedItem.value);
+				
+				if(this._currAo == null){
+					return;
+				}
+				var mao:MapAo;
+				mao = this._aolayer.getMapAoById(_currAo.getId());
+				mao.getPath().setTickTimeGap( secs );
+				//mao.getPath().setTicksVisible( secs!=0 );
+				//记录时间标记间隔
+				_currAo.setOption("trackpath.timegap",cbxTimeTickGap.selectedIndex);
+			}
+			
+			
+			protected function cbxTimeTickGap_changeHandler(event:IndexChangeEvent):void
+			{
+				changeTrackTimeGap();
+				
+			}
+
+			protected function dgVisitPoints_itemClickHandler(event:ListEvent):void
+			{
+				this.dgVisitPoints_itemDoubleClickHandler(event);	
+			}
+
+			//输入gps经纬度转换为地图坐标，并定位到地图
+			protected function btnPosMap_clickHandler(event:MouseEvent):void
+			{
+				var line:String = edtGpsPosLonLat.text;
+				var ll:Array = line.split(",");
+				if(ll.length!=2){
+					Alert.show("错误的经纬度!","错误");
+					return;
+				}
+				server.convertXy_g2m(parseFloat(ll[0]),parseFloat(ll[1]));
+				
+			}
+
+
+			protected function uimapgrid1_resizeHandler(event:ResizeEvent):void
+			{
+				//Alert.show(event.target.toString());
+				var ui:UIComponent = event.target as UIComponent;
+				//mapgrid.onResize( ui.width,ui.height);
+			}
+
+
+			protected function navigatorcontent1_dragStartHandler(event:DragEvent):void
+			{
+				Alert.show("drag start");
+			}
+
+
+			protected function aoTree_dragDropHandler(event:DragEvent):void
+			{
+				//Alert.show("drag drop");
+				var map:uiMapGridItem;
+				map = AppCore.instance()._delta.dragitem as uiMapGridItem;
+				if(map == null){
+					return;
+				}
+				var xml:XML = aoTree.selectedItem as XML; 
+				if(xml.@id == "0"){
+					return;
+				}
+				var ao:ActiveObject = AppCore.instance().getAoCollector().getActiveObject(parseInt(xml.@id));
+				if( ao == null){
+					return;
+				}
+				map.setActiveObject(ao);
+				
+			}
+
+
+			protected function aoTree_dragOverHandler(event:DragEvent):void
+			{
+				trace(event.target.toString());
+			}
+
+
+			protected function aoTree_dragStartHandler(event:DragEvent):void
+			{
+				trace('drag start...');
+				AppCore.instance()._delta.dragitem = null;
+			}
+
+			//双击地图，实现放大
+			protected function fxmap_doubleClickHandler(event:MouseEvent):void
+			{
+				fxmap.map.zoom = fxmap.map.zoom+1;
+				var loc:Location;
+				loc = fxmap.map.getLocationFromMapPx( new Pixel(event.localX,event.localY) );
+				trace(loc);
+				Alert.show(loc.toString());
+			}
+
+			protected function layerchina_doubleClickHandler(event:MouseEvent):void
+			{
+				
+				
+			}
+
+			//熄火
+			protected function btnEngineOff_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("此设备未接驳ACC电源，尚不支此功能!","提示");
+			}
+
+
+			protected function btnCamera_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("此设备尚不支持摄像功能!","提示");
+			}
+
+
+			protected function btnPowerOff_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("此设备未接驳ACC电源，尚不支此功能!","提示");
+			}
+			
+			//输入监听号码
+			private function onListenSelect(d:String):void{
+				
+				server.ctrlset_startListen(this._currAo.getId(),d);
+			}
+
+			private function onConfirm_listen(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					//adminserver.deleteNews(0,parseInt(dg.selectedItem.id));
+					DialogInputLineText.show(this,"","请输入监听被叫电话：","监听提示:",onListenSelect);
+				}
+			}
+			
+			protected function btnListen_clickHandler(event:MouseEvent):void
+			{
+				if(this._currAo == null){
+					Alert.show("请选择监听对象!");
+					return;
+				}
+				//Alert.show("监听启用，设备端将产生通话费用，是否继续","提示",Alert.YES | Alert.CANCEL,this,onConfirm_listen);// TODO Auto-generated method stub
+				DialogInputLineText.show(this,"","请输入监听被叫电话(监听启用，设备端将产生通话费用)：","监听提示:",onListenSelect);
+			}
+
+
+			protected function btnOilOff_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("此设备未接驳汽车电路，尚不支此功能!","提示");
+			}
+
+
+			protected function btnSendMessage_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("此设备尚不支此功能!","提示");
+			}
+
+			protected function btnClearMiles_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("是否真的要清除里程?","提示");
+			}
+
+
+			protected function btnPosMap2_clickHandler(event:MouseEvent):void
+			{
+				var line:String = edtMapPosLonLat.text;
+				var ll:Array = line.split(",");
+				if(ll.length!=2){
+					Alert.show("错误的经纬度!","错误");
+					return;
+				}
+				var loc:Location = new  Location(parseFloat(ll[0]),parseFloat(ll[1]));
+				fxmap.map.moveTo(loc);
+				_gismarker.geometry = new org.openscales.geometry.Point(loc.lon,loc.lat);
+				_gismarker.visible = true;
+				_gismarker.draw();
+			}
+
+
+			protected function btnNoticeNext_clickHandler(event:MouseEvent):void
+			{
+				if( this._curNotice != null){
+					server.getNoticeItem( _curNotice.id,false);
+				}else{
+					server.getNoticeItem( -1);
+				}
+			}
+
+
+			protected function btnNoticePrev_clickHandler(event:MouseEvent):void
+			{
+				if( this._curNotice != null){
+					server.getNoticeItem( _curNotice.id,true);
+				}else{
+					server.getNoticeItem( -1);
+				}
+			}
+
+			//发送设备复位消息
+			private function onDevReset_alert(event:CloseEvent):void{
+				if( event.detail == Alert.YES ){
+					server.ctrlset_reset(_currAo.getId());
+				}
+			
+			}
+			
+			protected function btnDevReset_clickHandler(event:MouseEvent):void
+			{
+				if(this._currAo == null){
+					Alert.show("请选择复位对象!");
+					return;
+				}
+				Alert.show("准备设备复位，是否继续?","警告",Alert.YES | Alert.CANCEL,this,onDevReset_alert);
+			}
+
+			private function onSearchBarrier():void{
+				server.getBarrierList(edtFilterBarrier.text);
+			}
+			
+			protected function btnSearchBarrier_clickHandler(event:MouseEvent):void
+			{
+				onSearchBarrier();
+			}
+
+
+			protected function btnDelBarrier_clickHandler(event:MouseEvent):void
+			{
+				if(this.dgBarriers.selectedItem==null){
+					Alert.show("请选择围栏记录!","提示");
+					return ;
+				}
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_delbarrier);
+				
+			
+			}
+			
+			private function onalert_delbarrier(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteBarrier(dgBarriers.selectedItem.id);
+				}
+			}
+
+
+			protected function btnAddBarrier_clickHandler(event:MouseEvent):void
+			{
+				//uiFormNewBarrier.show( gisadmin.gisadmin.mainwindow,null,this._barrierlayer);
+				var form:uiFormNewBarrier = uiFormNewBarrier(PopUpManager.createPopUp(this,uiFormNewBarrier,false));				
+				PopUpManager.centerPopUp(form);
+				form.show(null,this._barrierlayer,onSearchBarrier);
+				
+				
+			}
+
+
+			protected function ckShowBarriers_clickHandler(event:MouseEvent):void
+			{
+				this.showBarriers();
+			}
+
+
+			protected function dgBarriers_clickHandler(event:MouseEvent):void
+			{
+				var n:int;
+				var b:MapBarrier;
+				if( dgBarriers.selectedItem == null){
+					return ;
+				}
+				for(n=0;n<_barriers.length;n++){
+					b = _barriers[n] as MapBarrier;
+					if( b.data.id == dgBarriers.selectedItem.id){
+						b.setFocus(true);	
+						//fxmap.map.moveTo(
+						fxmap.map.moveTo( b.getGeoRect().center);
+						//fxmap.map.zoomToExtent(b.getGeoRect());
+					}else{
+						b.setFocus(false);
+					}
+					
+					
+				}
+			}
+
+
+			protected function dgBarriers_doubleClickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+			protected function btnAsiFlash_clickHandler(event:MouseEvent):void
+			{
+				server.getAsiList();
+			}
+
+
+			protected function btnAsiAdd_clickHandler(event:MouseEvent):void
+			{
+				if( this.cbAsiList.selectedItem == null){
+					return ;
+				}
+				if(this._currAo == null){
+					return ;
+				}
+				
+				server.attachAsi( _currAo.getId(),cbAsiList.selectedItem.id);
+			}
+
+
+			protected function btnAsiDel_clickHandler(event:MouseEvent):void
+			{
+				if(this.dgAoAsiList.selectedItem == null){
+					return ;
+				}
+				if(this._currAo == null){
+					return ;
+				}
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_delaoasi);
+			}
+			
+			private function onalert_delaoasi(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					
+					server.detachAsi(_currAo.getId(),this.dgAoAsiList.selectedItem.id);
+				}
+			}
+
+
+			protected function btnGeoPos_clickHandler(event:MouseEvent):void
+			{
+				// just for testing
+				trace("aolayer's features:",_aolayer.features.length);
+				//AppCore.instance().getAoCollector().clear();
+				trace("aolayer's features:",_aolayer.features.length);
+				trace("feature type:",_aolayer.features[0].toString()); //仅仅留下一个gis_marker作为地理标显示
+				
+			}
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="ReplayWindow"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<fx:XMLList id="treeData">
+			<node label="Mail Box">
+				<node label="Inbox">
+					<node label="Marketing"/>
+					<node label="Product Management"/>
+					<node label="Personal"/>
+				</node>
+				<node label="Outbox">
+					<node label="Professional"/>
+					<node label="Personal"/>
+				</node>
+				<node label="Spam"/>
+				<node label="Sent"/>
+			</node>
+		</fx:XMLList>
+	</fx:Declarations>
+	
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<s:VGroup width="280" height="100%" id="vgleft">
+			<mx:ViewStack id="viewstack1" width="100%" height="100%">
+				
+				<mx:VDividedBox label="" width="100%" height="100%">
+					<s:Panel width="100%" height="100%" title="对象列表" cornerRadius="5" textAlign="left">
+						<s:layout>
+							<s:VerticalLayout horizontalAlign="center"/>
+						</s:layout>
+						<mx:TabNavigator width="100%" height="100%" paddingTop="0">
+							<s:NavigatorContent label="分组" width="100%" height="100%" dragStart="navigatorcontent1_dragStartHandler(event)">
+								<s:layout>
+									<s:VerticalLayout/>
+								</s:layout>
+								<mx:Tree width="100%" height="100%"  labelField="@label" 
+										 id="aoTree"
+										 showRoot="false" iconField="@icon"
+										 change="onAoTreeItemChange(event)" doubleClickEnabled="true" itemDoubleClick="aoTree_itemDoubleClickHandler(event)" 
+										 itemClick="aoTree_itemClickHandler(event)" x="-2" y="10" 
+										 dragEnabled="true"  dragDrop="aoTree_dragDropHandler(event)" 
+										 dragOver="aoTree_dragOverHandler(event)" 
+										 dragStart="aoTree_dragStartHandler(event)"
+										 folderOpenIcon="{groupItem}"
+										 folderClosedIcon="{groupItem}">
+								</mx:Tree>
+							</s:NavigatorContent>
+							
+							<s:NavigatorContent label="检索" width="100%" height="100%">
+								<s:layout>
+									<s:VerticalLayout/>
+								</s:layout>
+								<s:HGroup width="100%" height="28" verticalAlign="middle">
+									<s:Label text="名称:"/>
+									<s:TextInput width="120" id="edtAoName"/>
+									<s:Button label="检索" id="btnAoSearch" click="btnAoSearch_clickHandler(event)"/>
+								</s:HGroup>
+								<mx:DataGrid width="100%" height="100%" id="dgAolist" itemClick="aolist_itemClickHandler(event)" horizontalGridLines="true">
+									<mx:columns>
+										<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+										<mx:DataGridColumn headerText="名称" dataField="name"/>
+										<mx:DataGridColumn headerText="分组" dataField="group"/>
+										<mx:DataGridColumn/>
+									</mx:columns>
+								</mx:DataGrid>
+							</s:NavigatorContent>
+							<s:NavigatorContent label="工具" width="100%" height="100%">
+								<s:Label x="8" y="17" text="GPS坐标定位:"/>
+								<s:TextInput x="6" y="34" width="172" text="121.20,31.10" id="edtGpsPosLonLat" height="24"/>
+								<s:Button x="185" y="37" label="定位" width="50" id="btnPosMap" click="btnPosMap_clickHandler(event)"/>
+								<s:Label x="10" y="73" text="地图坐标定位:"/>
+								<s:TextInput x="6" y="89" height="24" width="172" text="121.20,31.10" id="edtMapPosLonLat"/>
+								<s:Button x="186" y="91" label="定位" width="50" id="btnPosMap2" click="btnPosMap2_clickHandler(event)"/>
+								<s:Label x="8" y="127" text="地址定位:"/>
+								<s:TextInput x="7" y="143" height="24" width="239" text="上海市建国西路1155号"/>
+								<s:Button x="7" y="171" label="定位" width="50" id="btnGeoPos" click="btnGeoPos_clickHandler(event)"/>
+							</s:NavigatorContent>
+						</mx:TabNavigator>
+					</s:Panel>
+					<s:Panel width="100%" height="208" title="概要" cornerRadius="5">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<mx:TabNavigator width="100%" height="100%" paddingTop="0" creationPolicy="all">
+							<s:NavigatorContent label="系统状态" width="100%" height="100%">
+								<s:layout>
+									<s:BasicLayout/>
+								</s:layout>
+								<s:BorderContainer width="15" height="15" x="10" y="34" backgroundColor="#9FDA96">
+								</s:BorderContainer>
+								<s:Label text="正常" x="29" y="36"/>
+								<s:BorderContainer width="15" height="15" backgroundColor="#BABBA6" x="9" y="78">
+								</s:BorderContainer>
+								<s:Label text="离线" x="29" y="81" height="11"/>
+								<s:BorderContainer width="15" height="15" backgroundColor="#EC2B0B" x="10" y="56">
+								</s:BorderContainer>
+								<s:Label text="报警" x="29" y="57"/>
+								<mx:LinkButton x="67" y="33" label="0" width="50" id="txtAoNumNormal"/>
+								<mx:LinkButton x="67" y="54" label="0" width="50" id="txtAoNumAlarm"/>
+								<mx:LinkButton x="67" y="78" label="0" width="50" id="txtAoNumOffline"/>
+								<s:Label x="10" y="15" text="设备总数:"/>
+								<s:Label x="76" y="15" text="0" id="txtAoTotal" verticalAlign="middle" width="33" textAlign="center"/>
+							</s:NavigatorContent>
+							<s:NavigatorContent label="通告" width="100%" height="100%">
+								<s:layout>
+									<s:VerticalLayout gap="0"/>
+								</s:layout>
+								<s:HGroup width="100%" height="21" textAlign="center" verticalAlign="middle">
+									<s:Button label="&lt;&lt;" width="40" id="btnNoticePrev" click="btnNoticePrev_clickHandler(event)"/>
+									<s:Label text="2012-5-20" width="100%" id="txtNoticeTitle" color="#8EE9EF" fontWeight="normal" fontSize="15"/>
+									<s:Button label="&gt;&gt;" width="40" id="btnNoticeNext" click="btnNoticeNext_clickHandler(event)"/>
+								</s:HGroup>
+								<s:TextArea verticalScrollPolicy="auto" width="100%" height="100%" fontSize="14" id="txtNoticeContent"/>
+							</s:NavigatorContent>
+							<s:NavigatorContent label="报警" width="100%" height="100%">
+							</s:NavigatorContent>
+						</mx:TabNavigator>
+					</s:Panel>
+				</mx:VDividedBox>
+				
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="100%" height="100%" gap="1" paddingTop="5">
+			<s:HGroup width="100%" height="25" verticalAlign="middle" gap="2">
+				<mx:LinkButton label="&lt;&lt;" id="pleft" click="pleft_clickHandler(event)"/>
+				<mx:ToggleButtonBar dataProvider="{viewstack2}">
+				</mx:ToggleButtonBar>
+				<s:CheckBox label="显示围栏" id="ckShowBarriers" click="ckShowBarriers_clickHandler(event)" selected="true"/>
+				<mx:Spacer height="25" width="100%"/>
+				<mx:LinkButton label="&gt;&gt;" id="pright" click="pright_clickHandler(event)"/>
+			</s:HGroup>
+			<mx:ViewStack id="viewstack2" width="100%" height="100%">
+				<s:NavigatorContent label="主视图" width="100%" height="100%">
+					<s:layout>
+						<s:BasicLayout/>
+					</s:layout>
+					<org:Map id="fxmap" width="100%" height="100%"  
+							 zoom="12" 
+							 center="121.486,31.0185"  doubleClick="fxmap_doubleClickHandler(event)">
+						<org:layout>
+							<s:BasicLayout/>
+						</org:layout>
+						<org:WMSC id="layerchina" x="168" y="209"  layers="china" 		 
+								  resolutions="  0.000005, 0.000008, 0.000012, 0.000018, 0.000024, 0.000047, 0.000119, 0.000237,
+								  0.000474, 0.000948, 0.001660, 0.002371, 0.004742, 0.011854, 0.023708, 0.047416,
+								  0.094833"   
+								  width="88" doubleClick="layerchina_doubleClickHandler(event)">
+							
+						</org:WMSC>
+						
+						
+						
+						
+						<org:MousePosition numdigits="4.4"  id="llpos" x="10" y="{fxmap.height-20}" width="195"   >
+						</org:MousePosition>
+						<org:DragHandler id="mapdrag"  />
+						<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+						</org:PanZoom>
+						
+						<org:ScaleLine id="scaline" x="{fxmap.width - 200}" y="{fxmap.height-80}" map="{fxmap.map}"></org:ScaleLine>	
+						<org:WheelHandler/>
+						
+						<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+						<!-- 加载时候的沙漏-->
+						
+						
+						<!--<org:FeatureDrawing x="0" y="{height-200}"/>-->
+						<org:FeatureLayer id="aolayers" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+						<org:FeatureLayer id="aolayer" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+					</org:Map>
+					<ui:uiMapZoomIndicator right="-7" top="13" id="zoomindicator"/>
+				</s:NavigatorContent>
+				<s:NavigatorContent label="四画格" width="100%" height="100%">
+					<s:layout>
+						<s:VerticalLayout gap="2"/>
+					</s:layout>
+					<s:HGroup width="100%" height="20" color="#D9CCCC" verticalAlign="middle">
+						<s:RichText text="支持实时4路对象监控,请对象从列表中拖放到地图网格中.." color="#59DCE4"/>
+					</s:HGroup>
+					<ui:uiMapGrid x="43" y="133" width="100%" height="100%" resize="uimapgrid1_resizeHandler(event)" id="mapgrid">
+					</ui:uiMapGrid>
+				</s:NavigatorContent>
+				<s:NavigatorContent label="报表日志" width="100%" height="100%">
+					<s:layout>
+						<s:VerticalLayout/>
+					</s:layout>
+					<mx:TabNavigator x="85" y="135" width="100%" height="100%" creationPolicy="all" horizontalAlign="right">
+						<s:NavigatorContent label="登入日志" width="100%" height="100%">
+							<s:layout>
+								<s:VerticalLayout/>
+							</s:layout>
+							<ns1:uiPaneLoginQuery x="57" y="133" width="100%" height="100%"/>
+						</s:NavigatorContent>
+						
+						<s:NavigatorContent label="里程统计" width="100%" height="100%">
+							<s:layout>
+								<s:VerticalLayout/>
+							</s:layout>
+							<ns1:uiPaneMileQuery width="100%" height="100%"/>
+						</s:NavigatorContent>
+						<s:NavigatorContent label="报警查询" width="100%" height="100%">
+							<s:layout>
+								<s:VerticalLayout/>
+							</s:layout>
+							<ns1:uiPaneAlarmLogQuery width="100%" height="100%"/>
+						</s:NavigatorContent>
+						<s:NavigatorContent label="停车日志" width="100%" height="100%">
+						</s:NavigatorContent>
+					</mx:TabNavigator>
+				</s:NavigatorContent>
+				<s:NavigatorContent label="用户留言" width="100%" height="100%">
+					<s:layout>
+						<s:VerticalLayout/>
+					</s:layout>
+					<ns1:uiPaneUserMessage width="100%" height="100%"/>
+				</s:NavigatorContent>
+				
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="265" height="100%" id="vgright">
+			<s:Panel width="100%" height="100%" title="选择对象" cornerRadius="5" id="paneFocusAo">
+				<s:layout>
+					<s:VerticalLayout gap="1" paddingLeft="2" paddingRight="2"/>
+				</s:layout>
+				<s:HGroup width="100%" height="26" verticalAlign="middle">
+					
+					<s:Label text="轨迹显示"/>
+					<s:DropDownList width="92" labelField="name" selectedIndex="2" id="cbxHours" change="cbxHours_changeHandler(event)">
+						<s:dataProvider>
+							<s:ArrayCollection>								
+								<fx:Object name="关闭" value="0"/>
+								<fx:Object name="1 小时" value="1"/>
+								<fx:Object name="2 小时" value="2"/>
+								<fx:Object name="4 小时" value="4"/>
+								<fx:Object name="8 小时" value="8"/>								
+								<fx:Object name="12 小时" value="12"/>	
+								<fx:Object name="24 小时" value="24"/>		
+								
+							</s:ArrayCollection>
+						</s:dataProvider>
+					</s:DropDownList>
+					<s:CheckBox label="居中显示" id="ckCenter" click="ckCenter_clickHandler(event)"/>
+				</s:HGroup>
+				
+				<s:HGroup width="100%" height="26" verticalAlign="middle">
+					
+					<s:Label text="时间标记"/>
+					<s:DropDownList width="92" labelField="name" selectedIndex="1" id="cbxTimeTickGap" change="cbxTimeTickGap_changeHandler(event)">
+						<s:dataProvider>
+							<s:ArrayCollection>
+								<fx:Object name="关闭" value="0"/>
+								<fx:Object name="1 分钟" value="60"/>
+								<fx:Object name="5 分钟" value="300"/>
+								<fx:Object name="10 分钟" value="600"/>								
+								<fx:Object name="30 分钟" value="1800"/>
+								<fx:Object name="1 小时" value="3600"/>
+								
+							</s:ArrayCollection>
+						</s:dataProvider>
+					</s:DropDownList>
+					
+				</s:HGroup>
+				<mx:TabNavigator width="100%" height="100%" dropShadowVisible="false" y="30" cornerRadius="4" paddingTop="0" creationPolicy="all">
+					
+					<s:NavigatorContent label="状态" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<mx:DataGrid width="100%" height="100%" showHeaders="false" id="aoStatus"  paddingRight="2" horizontalGridLines="true">
+							<mx:columns>
+								<mx:DataGridColumn headerText="name" dataField="name" />
+								<mx:DataGridColumn headerText="value" dataField="value"/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="属性" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<mx:DataGrid width="100%" height="100%" showHeaders="false" id="aoAttributes"  paddingRight="2" horizontalGridLines="true">
+							<mx:columns>
+								<mx:DataGridColumn headerText="name" dataField="name" />
+								<mx:DataGridColumn headerText="value" dataField="value"/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+					
+					<!--
+					<s:NavigatorContent label="报警" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout gap="1"/>
+						</s:layout>
+						<mx:DataGrid width="100%" height="266" showHeaders="false" id="aoTracks" >
+							<mx:columns>
+								<mx:DataGridColumn headerText="name" dataField="col1"  width="100"/>
+								<mx:DataGridColumn headerText="LonLat" dataField="col2"/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+					-->
+					
+					<s:NavigatorContent label="控制" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:Button x="17" y="18" label="拍照" height="30" id="btnCamera" click="btnCamera_clickHandler(event)"/>
+						<s:Button x="17" y="51" label="监听" height="30" id="btnListen" click="btnListen_clickHandler(event)" chromeColor="#B95D5D"/>
+						<s:Button x="17" y="84" label="发送短信" height="30" id="btnSendMessage" click="btnSendMessage_clickHandler(event)" chromeColor="#B95D5D"/>
+						<s:Button x="95" y="51" label="断油" height="30" id="btnOilOff" click="btnOilOff_clickHandler(event)"/>
+						<s:Button x="95" y="18" label="断电" height="30" id="btnPowerOff" click="btnPowerOff_clickHandler(event)"/>
+						<s:Button x="95" y="84" label="设备复位" height="30" id="btnDevReset" chromeColor="#B95D5D" click="btnDevReset_clickHandler(event)"/>
+						
+					</s:NavigatorContent>
+					<s:NavigatorContent label="报警配置项" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout gap="2"/>
+						</s:layout>
+						<s:HGroup width="100%" height="24" verticalAlign="middle" gap="2">
+							<s:Button label="刷新" width="45" fontSize="12" id="btnAsiFlash" click="btnAsiFlash_clickHandler(event)"/>
+									<s:DropDownList width="100%" id="cbAsiList" labelField="name"></s:DropDownList>
+									
+									<s:Button label="添加" width="45" id="btnAsiAdd" click="btnAsiAdd_clickHandler(event)"/>
+									<s:Button label="删除" width="45" id="btnAsiDel" click="btnAsiDel_clickHandler(event)"/>
+								
+							
+						</s:HGroup>
+						<mx:DataGrid width="100%" height="100%" horizontalGridLines="true" horizontalScrollPolicy="auto" id="dgAoAsiList">
+							<mx:columns>
+								<mx:DataGridColumn headerText="编号" dataField="idx" width="40" resizable="false"/>
+								<mx:DataGridColumn headerText="报警配置项" dataField="name" width="200"/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+				</mx:TabNavigator>
+			</s:Panel>
+			<s:Panel width="100%" height="100%" title="其他">
+				<s:layout>
+					<s:VerticalLayout gap="0"/>
+				</s:layout>
+				<mx:TabNavigator width="100%" height="100%" dropShadowVisible="false" y="30" paddingTop="0" creationPolicy="all">
+					<s:NavigatorContent label="热点" width="100%" height="100%" >
+						<s:layout>
+							<s:VerticalLayout gap="2"/>
+						</s:layout>
+						<s:HGroup width="100%" height="25" verticalAlign="middle">
+							<s:Button label="添加" width="45" id="btnCreateVisitPoint" click="btnCreateVisitPoint_clickHandler(event)"/>
+							<s:Button label="删除" width="45" id="btnDelVisitPoint" click="btnDelVisitPoint_clickHandler(event)"/>
+							<s:TextInput width="110" id="edtVisitPointName"/>
+							<s:Button label="检索" id="btnVisitPointSearch" click="btnVisitPointSearch_clickHandler(event)" width="49"/>
+						</s:HGroup>
+						<mx:DataGrid width="100%" height="100%" id="dgVisitPoints"  itemDoubleClick="dgVisitPoints_itemDoubleClickHandler(event)" doubleClickEnabled="true" itemClick="dgVisitPoints_itemClickHandler(event)" horizontalScrollPolicy="auto" horizontalGridLines="true">
+							<mx:columns>
+								<mx:DataGridColumn dataField="idx" headerText="编号" width="30"/>
+								<mx:DataGridColumn headerText="名称" dataField="name"/>
+								<mx:DataGridColumn headerText="经纬度" dataField="location"/>
+								<mx:DataGridColumn headerText="缩放" dataField="zoom"/>
+								<mx:DataGridColumn/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="围栏" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout gap="2"/>
+						</s:layout>
+						<s:HGroup width="100%" height="30" verticalAlign="middle" gap="2">
+							<s:Button label="添加" width="45" id="btnAddBarrier" click="btnAddBarrier_clickHandler(event)"/>
+							<s:Button label="删除" width="45" id="btnDelBarrier" click="btnDelBarrier_clickHandler(event)"/>
+							<s:TextInput width="100%" id="edtFilterBarrier"/>
+							<s:Button label="检索" width="45" id="btnSearchBarrier" click="btnSearchBarrier_clickHandler(event)"/>
+						</s:HGroup>
+						<mx:DataGrid width="100%" height="100%" id="dgBarriers" horizontalGridLines="true" horizontalScrollPolicy="auto" click="dgBarriers_clickHandler(event)" doubleClickEnabled="true" doubleClick="dgBarriers_doubleClickHandler(event)">
+							<mx:columns>
+								<mx:DataGridColumn headerText="编号" dataField="idx" width="40"/>
+								<mx:DataGridColumn headerText="名称" dataField="name"/>
+								<mx:DataGridColumn/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:NavigatorContent>
+					
+					
+				</mx:TabNavigator> 
+			</s:Panel>
+		</s:VGroup>
+	</s:HGroup>
+
+</s:Group>

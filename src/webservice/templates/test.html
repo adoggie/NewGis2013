@@ -1,0 +1,171 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <link rel="stylesheet" href="OpenLayers-2.8/theme/default/style.css" type="text/css" />
+    <link rel="stylesheet" href="OpenLayers-2.8/examples/style.css" type="text/css" />
+    <script src="OpenLayers-2.8/lib/OpenLayers.js"></script>
+    <script type="text/javascript">
+        var lon = 50;
+        var lat = 0;
+        var zoom = 0;
+        var map, layer;
+		var marker1;
+		var markers;
+
+        function init(){
+            OpenLayers.DOTS_PER_INCH = 72;
+            var options = {
+
+// various ways of specifying similar things
+//                          resolutions: [1.40625,0.703125,0.3515625,0.17578125,0.087890625,0.0439453125,0.02197265625,0.010986328125,0.0054931640625,0.00274658203125,0.00137329101],
+//                          scales: [50000000, 10000000],
+//                          maxResolution: 0.17578125,
+//                          minResolution: 0.0439453125,
+//                          maxScale: 10000000,
+//                          minScale: 50000000,
+//                          numZoomLevels: 5,
+//                          units: "dd",
+
+                            minResolution: "auto",
+                            minExtent: new OpenLayers.Bounds(-1, -1, 1, 1),
+                            maxResolution: "auto",
+                            maxExtent: new OpenLayers.Bounds(-180, -90, 180, 90)
+                          };
+				var bounds = new OpenLayers.Bounds(
+                    120.852, 30.693,
+                    121.963, 31.864
+                );
+				
+				var vlayer = new OpenLayers.Layer.Vector( "Editable" );
+
+                var options = {
+					//numZoomLevels:20,
+                    controls: [ new OpenLayers.Control.OverviewMap(),		//鸟瞰区
+								new OpenLayers.Control.KeyboardDefaults(), //键盘移动支持，上下左右，+，-
+								new OpenLayers.Control.MousePosition(), //默认参数的话鼠标位置显示在地图上   
+								//new OpenLayers.Control.Permalink(),		// 有个超链接
+                       			new OpenLayers.Control.ScaleLine(),	 //地图比例尺
+								//new OpenLayers.Control.LayerSwitcher({'ascending':false}), //层切换
+								// new OpenLayers.Control.EditingToolbar(vlayer)   //编辑矢量对象的控制
+
+								],
+					 
+					resolutions: [0.17578125,0.087890625,0.0439453125,0.02197265625,
+								  0.010986328125,0.0054931640625,0.00274658203125,0.00137329101,
+								  0.0006,0.0003,0.00015,0.000075,
+								  0.000035,0.000018,0.000009,0.0000045],
+					 
+                    //maxExtent: new OpenLayers.Bounds(120.852, 30.693,121.963, 31.864),
+                    //maxResolution: 0.00457421875, //一个像素表示最大的长度
+					 maxResolution: "auto",
+					
+					maxExtent: new OpenLayers.Bounds(70, 10, 130, 60), //地图显示的最大范围
+                    projection: "EPSG:4326",
+//                    units: 'm'
+					units:'degrees'
+                };
+            map = new OpenLayers.Map( 'map',options);// , options);
+
+ 				
+
+            layer = new OpenLayers.Layer.WMS( "FirstMap",                   
+					//"http://localhost:9000/tilecache/tilecache.py",											 
+					"http://localhost:8080/geoserver/wms",
+					//"http://localhost:8080/geoserver/gwc/service/wms", //?layers=shanghai
+					{	
+						//layers: 'china,shanghai',//多个层可以一次加载
+						layers: 'china,shanghai,beijin,sanxi',//多个层可以一次加载
+					 	//width: '85',
+                        srs: 'EPSG:4326',                  
+                        //height: '512',
+                       // styles: '',
+                       // format: 'image/png',
+                        //tiled: 'false',		//网格块缓冲 
+						//transparent: 'true',
+
+					} //这些是wms标准参数，之后还可以携带不同wms服务器自己的选项参数
+					
+					);
+			//map.addLayer(vlayer); //加入一个编辑矢量层
+            map.addLayer(layer);
+
+//			layer.setVisibility(false);		
+
+			//缩放工具栏
+			map.addControl(new OpenLayers.Control.PanZoomBar(
+				{ //position: new OpenLayers.Pixel(2, -10)
+                }));
+              
+			map.addControl(new OpenLayers.Control.Navigation());				//支持鼠标拖动，shift框选
+            map.addControl(new OpenLayers.Control.Scale($('scale')));			//缩放比
+            map.addControl(new OpenLayers.Control.MousePosition({element: $('location'),suffix:'度'}));  //显示鼠标位置
+             
+			  //map.zoomToExtent(bounds);
+
+			//alert(lon.toString()+ ':'+lat.toSource());							 
+           // map.setCenter(new OpenLayers.LonLat(120.0, 0), 0);
+		   map.zoomToMaxExtent();
+		   // create Markers
+		   
+		    markers = new OpenLayers.Layer.Markers( "Markers" );
+            map.addLayer(markers);
+			
+			var icon = new OpenLayers.Icon('images/marker.png');
+			marker1 = new OpenLayers.Marker(new OpenLayers.LonLat(120,25),icon);
+            markers.addMarker(marker1);
+		   
+        }
+	
+	function onMarkerChange(){
+		//marker1.lonlat = new OpenLayers.LonLat(120,30); markers.redraw();
+		var markHtml ="<div> <img src=\"images/marker.png\"/>苏K5H773-90000</div>";
+		marker1.icon.imageDiv.innerHTML  = markHtml;
+	}
+    </script>
+<style type="text/css">
+<!--
+.swMapDiv {
+	height: 600px;
+	width: 600px;
+	border: 1px solid #F00;
+	//background-color: #996;
+	float: left;
+}
+#location{
+	height: 600px;
+	width: 600px;
+	border: 1px solid #390;
+	//background-color: #996;
+	float: right;
+}	
+
+#scale{
+	height: 40px;
+	width: 400px;
+	border: 1px solid #666;
+	//background-color: #996;
+//	float: left;
+}
+-->
+  </style>
+  </head>
+  <body onLoad="init()">
+  	<div> <img src="images/marker.png"/>abc</div>
+    <h1 id="title">Zoom Level
+      <label>
+        <input type="submit" name="btn1" id="btn1" value="moveMarker" onClick="onMarkerChange()">
+      </label>
+    </h1>
+
+     
+
+  <p align="center"  id="shortdesc">
+       
+    </p>
+
+  <div id="map" class="swMapDiv"></div>
+
+  <div id="location" >location</div>
+	<div id="scale"></div>
+  </body>
+</html>
+

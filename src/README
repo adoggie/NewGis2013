@@ -1,0 +1,10 @@
+﻿
+pygwa.py          - gwa 用户接入网关服务器
+ctrlserver.py     - 控制服务器 
+das/das.py        - 设备接入服务器
+flex_socket_policy/flashpolicyd.py - socket 843 服务
+newgis.py         -  系统服务rpc接口映射python文件
+idl/newgis.idl    - 系统服务接口文件
+webservice/webserver.py  - web服务器入口
+data/initdb.py    - 初始化db数据
+data/simu_gps.py  - 模拟发送gps到das服务器

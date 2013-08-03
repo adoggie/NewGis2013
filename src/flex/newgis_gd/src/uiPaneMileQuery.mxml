@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="678" height="462" 
+		 xmlns:ui="com.sw2us.newgis.ui.*"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="1"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<s:method name="getAoReport_Miles" result="getAoReport_Miles_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function getAoReport_Miles_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			
+			
+			protected function btnTodayMiles_clickHandler(event:MouseEvent):void
+			{
+				server.getAoReport_Miles(this.edtName.text,1,dtSelect.getValue().start,dtSelect.getValue().end,false,this.ckExport.selected);
+			}
+
+			protected function btnMonthMiles_clickHandler(event:MouseEvent):void
+			{
+				server.getAoReport_Miles(this.edtName.text,2,dtSelect.getValue().start,dtSelect.getValue().end,this.ckAggr.selected,this.ckExport.selected);
+			}
+
+
+			protected function btnTimeSearch_clickHandler(event:MouseEvent):void
+			{
+				server.getAoReport_Miles(this.edtName.text,3,dtSelect.getValue().start,dtSelect.getValue().end,this.ckAggr.selected,this.ckExport.selected);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="35" verticalAlign="middle" color="#D4CDCD">
+		<s:Label text="名称"/>
+		<s:TextInput id="edtName"/>
+		<s:Button label="当日里程" id="btnTodayMiles" click="btnTodayMiles_clickHandler(event)"/>
+		<s:Button label="当月里程" id="btnMonthMiles" click="btnMonthMiles_clickHandler(event)"/>
+		<ui:uiSearcher4 id="dtSelect" width="253"/>
+		<s:Button label="时间查询" id="btnTimeSearch" click="btnTimeSearch_clickHandler(event)"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="22" color="#CCC1C1">
+		<s:CheckBox label="数据聚合" selected="true" id="ckAggr"/>
+		<s:CheckBox label="导出文件" id="ckExport"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" id="dg" horizontalGridLines="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+			<mx:DataGridColumn headerText="名称" dataField="name"/>
+			<mx:DataGridColumn headerText="时间" dataField="time_s"/>
+			<mx:DataGridColumn headerText="里程(km)" dataField="miles"/>
+			<mx:DataGridColumn headerText="单位(天)" dataField="days"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+	<s:HGroup width="100%" height="5" verticalAlign="middle" gap="2">
+	</s:HGroup>
+</s:Group>

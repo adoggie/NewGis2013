@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<actionScriptProperties analytics="false" mainApplicationPath="runmap_view.mxml" projectUUID="1cc65adc-ad24-4a5f-8132-d4ce051daca1" version="6">
+  <compiler additionalCompilerArguments="-locale zh_CN" autoRSLOrdering="true" copyDependentFiles="true" fteInMXComponents="false" generateAccessible="true" htmlExpressInstall="true" htmlGenerate="true" htmlHistoryManagement="true" htmlPlayerVersionCheck="true" includeNetmonSwc="false" outputFolderPath="bin-debug" sourceFolderPath="src" strict="true" targetPlayerVersion="0.0.0" useApolloConfig="false" useDebugRSLSwfs="true" verifyDigests="true" warn="true">
+    <compilerSourcePath/>
+    <libraryPath defaultLinkType="1">
+      <libraryPathEntry kind="4" path="">
+        <excludedEntries>
+          <libraryPathEntry kind="3" linkType="1" path="${PROJECT_FRAMEWORKS}/libs/flex.swc" useDefaultLinkType="false"/>
+        </excludedEntries>
+      </libraryPathEntry>
+      <libraryPathEntry kind="1" linkType="1" path="libs"/>
+      <libraryPathEntry kind="1" linkType="1" path="D:/projects/newgis.2012/swGis/lib/openscales-1.2.1/libs"/>
+      <libraryPathEntry kind="3" linkType="1" path="D:/projects/newgis.2012/swGis/flex/libs/MapABC_Flex_API_For_Web_V2.3.3_sdk_Public_version/MAPABC_FLEX_API_WEB_SWC_V2.3.3.swc" useDefaultLinkType="false"/>
+    </libraryPath>
+    <sourceAttachmentPath/>
+  </compiler>
+  <theme themeIsDefault="false" themeIsSDK="true" themeLocation="${SDK_THEMES_DIR}/samples/themes/spark_graphite"/>
+  <applications>
+    <application path="tobacco.mxml"/>
+    <application path="runmap_view.mxml"/>
+    <application path="runmap.mxml"/>
+    <application path="newgis.mxml"/>
+    <application path="simple_map.mxml"/>
+    <application path="gisadmin/gisadmin.mxml"/>
+    <application path="gisDemo.mxml"/>
+    <application path="test_map.mxml"/>
+    <application path="test.mxml"/>
+    <application path="test_map_air.mxml"/>
+    <application path="test_map_air2.mxml"/>
+  </applications>
+  <modules/>
+  <buildCSSFiles/>
+</actionScriptProperties>

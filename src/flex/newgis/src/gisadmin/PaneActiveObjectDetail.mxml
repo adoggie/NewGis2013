@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="496" height="282">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Panel width="100%" height="100%" title="设备信息">
+		<s:layout>
+			<s:VerticalLayout/>
+		</s:layout>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="名称" width="60" textAlign="right"/>
+			<s:TextInput width="140"/>
+			<s:Label text="接入服务器" width="60" textAlign="right"/>
+			<s:ComboBox width="140"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="设备编码" width="60" textAlign="right"/>
+			<s:ComboBox width="140"/>
+			<s:Label text="设备种类" width="60" textAlign="right"/>
+			<s:DropDownList width="140"></s:DropDownList>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="邮政编码" width="60" textAlign="right"/>
+			<s:TextInput width="140"/>
+			<s:Label text="联系人" width="60" textAlign="right"/>
+			<s:TextInput width="140"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="联系电话" width="60" textAlign="right"/>
+			<s:TextInput/>
+			<s:CheckBox label="是否启用" textAlign="left"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="地址" width="60" textAlign="right"/>
+			<s:TextInput width="402"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="开通时间" width="60" textAlign="right"/>
+			<mx:DateField width="140"/>
+			<s:Label text="到期时间" width="60" textAlign="right"/>
+			<mx:DateField width="140"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="备注说明" width="60" textAlign="right"/>
+			<s:TextInput width="403"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="29" verticalAlign="middle" textAlign="center">
+			<mx:Spacer width="50%"/>
+			<s:Button label="okay"/>
+			<s:Button label="close"/>
+			<mx:Spacer width="50%"/>
+		</s:HGroup>
+	</s:Panel>
+</s:Group>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   minWidth="955" minHeight="600" currentState="MainPlay" 
+			   xmlns:org="http://openscales.org"
+			    xmlns:ns1="*" preinitialize="init()" preloader="com.sw2us.newgis.ui.Preloader">
+
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="ReplayWindow"/>
+	</s:states>
+<fx:Script>
+	<![CDATA[
+		import com.sw2us.newgis.AppCore;
+		
+		protected function init():void{
+			AppCore.instance();
+		}
+	]]>
+</fx:Script>
+	
+
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	<s:HGroup includeIn="MainPlay" width="100%" height="44">
+		<s:BorderContainer width="100%" height="45" 
+						   backgroundColor="#777777" >
+			<!--
+						    backgroundImage="@Embed(source='assets/logo_top.png')"
+							 backgroundImageFillMode="repeat"
+			-->
+			<!--
+			<s:backgroundFill> 
+				<s:SolidColor 
+					color="white" 
+					alpha="0.9"/> 
+			</s:backgroundFill> 
+			-->
+			
+			<s:Label x="10" y="6" text="上海烟草销售演示" fontSize="24"/>			
+		</s:BorderContainer>
+		
+	</s:HGroup>
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<mx:ViewStack id="viewstack1" width="100%" height="100%" >
+			<s:NavigatorContent label="实时监控" width="100%" height="100%" id="GisRealView">
+				<s:layout>
+					<s:VerticalLayout/>
+				</s:layout>
+				<ns1:tobacco_view/>
+			</s:NavigatorContent>
+		</mx:ViewStack>
+	</s:HGroup>
+	<s:HGroup includeIn="MainPlay" width="100%" height="29" verticalAlign="middle">
+		<s:Label text="上海全格信息科技有限公司  www.sw2us.com@2011"/>
+	</s:HGroup>
+</s:Application>

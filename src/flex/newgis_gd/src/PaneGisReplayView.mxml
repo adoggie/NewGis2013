@@ -1,0 +1,807 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300" 
+		 xmlns:org="http://openscales.org"
+		 creationComplete="init()" 		 
+		  width.MainPlay="100%" height.MainPlay="100%" xmlns:local="*" xmlns:ui="com.sw2us.newgis.ui.*">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			
+			<s:method name="getAoReplayTrackData" result="getAoReplayTrackData_result(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.mapabc.maps.api.MFlexMap;
+			import com.mapabc.maps.api.basetypes.MLngLat;
+			import com.mapabc.maps.api.constants.MDisplayState;
+			import com.mapabc.maps.api.constants.MToolbars;
+			import com.mapabc.maps.api.events.MMapEvent;
+			import com.mapabc.maps.api.events.MMapMoveEvent;
+			import com.mapabc.maps.api.overlays.MMarker;
+			import com.mapabc.maps.api.overlays.options.MMarkerOptions;
+			
+			
+			import com.adobe.utils.*;
+			import com.sw2us.newgis.*;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.map.MapAo;
+			import com.sw2us.newgis.map.MapAoLayer;
+			import com.sw2us.newgis.map.MapAoMarker;
+			import com.sw2us.newgis.ui.DialogInputLineText;
+			
+			import flash.utils.Timer;
+			
+			import flashx.textLayout.tlf_internal;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.events.FeatureEvent;
+			import org.openscales.core.feature.CustomMarker;
+			import org.openscales.core.feature.LineStringFeature;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.core.style.Style;
+			import org.openscales.geometry.LineString;
+			import org.openscales.geometry.basetypes.*;
+			import org.osmf.events.TimeEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+			
+			public var _aolist:ArrayCollection = null; // ao 对象列表
+			public var _sysparams:Object =null;	//系统参数
+			
+			public var _currAo:ActiveObject = null;	//当前活动Ao对象
+			
+			
+			
+			private var playstatus:int = PLAY_STOPPED;
+			
+			private static const PLAY_STOPPED:int = 0;
+			private static const PLAY_PAUSED:int = 1;
+			private static const PLAY_RUNNING:int = 2;
+			//private static const PLAY_STOPPED_NAME:String = "停止";
+			//private static const PLAY_RUNNING_NAME:String = "";
+			
+			private var playtimer:Timer  = new Timer(1000);
+			private var data_dirty:Boolean = true;
+			private var _aolayer2:MapAoLayer;
+			//[Bind]
+			//private var _currAoAttributes:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			private var selectItems:ArrayCollection = new ArrayCollection(); 
+			//绑定到 dgAoList.dataProvider
+			
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				//var ch:ActiveObjectChannel = new ActiveObjectChannel();
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			
+			//ao回放数据返回
+			private function getAoReplayTrackData_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"错误");
+					return;
+				}
+				var ao:ActiveObject ;
+				var mao:MapAo;
+				var aoc:AoCollector = AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY);
+				
+				var rs:Array = cr.result as Array;
+				var d:Object;
+				for(var n:int=0;n<rs.length;n++){
+					var data:Object = rs[n];
+					var aoid:int = data.aoid;
+					
+					//var aoc2:AoCollector = AppCore.instance().getAoCollector( );
+					
+					
+					ao = aoc.getActiveObject(aoid);
+					
+					ao.getDataQueue().clearAll();	//删除所有ao缓冲数据
+					var tracks:Array = data.tracks as Array;
+					var gpsdata:Object = null;
+					
+					for(var x:int =0; x< tracks.length;x++){
+						d = tracks[x];
+						ao.getDataQueue().pushDataList( d.module, d.data);  //直接将数据列表放入回放队列
+						if(d.module ==ActiveObjectData.GPS && d.data.length >0 && gpsdata == null){
+							gpsdata = d.data[0]; //取ao对象的第一条历史gps数据
+						}
+					}
+					mao = _aolayer2.getMapAoById(aoid);
+					mao.setGpsData( gpsdata);
+				}
+				this.data_dirty = false; //数据成功返回
+				indicator.minimum = dt_start.getValue().time/1000 ; //+ dt_start.getValue().timezoneOffset*60;
+				indicator.maximum =dt_end.getValue().time/1000 ; //+ dt_end.getValue().timezoneOffset*60;
+				indicator.stepSize = 10; //拖动间隔5秒钟
+				indicator.value = indicator.minimum;
+				
+				
+				if(rs.length ==0){
+					return ;
+				}
+				d = rs[0];
+				this.showCurrentAoPath(d.aoid);
+				/*
+				ao = aoc.getActiveObject(d.aoid);
+				mao = _aolayer2.getMapAoById(d.aoid)
+				mao.moveCenter();
+				mao.showPath();
+				_currAo = ao;
+				*/
+			
+			}
+			
+			private function showCurrentAoPath(aoid:int):void{
+				var aoc:AoCollector = AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY);
+				var ao:ActiveObject;
+				var mao:MapAo;
+				
+				ao  = aoc.getActiveObject(aoid);
+				if( ao == _currAo){
+					return ;
+				}
+				
+				if(_currAo!=null){
+					mao = _aolayer2.getMapAoById(_currAo.getInfo().id);
+					mao.showPath(false);
+				}	
+				
+				
+				mao = _aolayer2.getMapAoById(aoid)
+				mao.moveCenter();
+				
+				if(ckShowPath.selected){
+					mao.showPath();
+					mao.getPath().setTickTimeGap( parseInt(cbxTimeTickGap.selectedItem.value));
+					//mao.getPath().setTicksVisible(true);					
+				}
+				_currAo = ao;
+			}
+			
+			private function test():void{
+				/*
+				var path:LineStringFeature ;				
+				var ptset:Vector.<Number> = new Vector.<Number>();
+				ptset.push( 121.4942); ptset.push(31.1185);
+				ptset.push( 121.4942); ptset.push(31.0185);
+				//path = new LineStringFeature(new LineString(
+				var lstr:LineString = new LineString(ptset);
+				var len:Number;
+				len = lstr.length;
+				
+				path = new LineStringFeature(lstr,null,Style.getDefaultLineStyle());
+				//path.draw();
+				_aolayer2.addFeature(path);
+				//path.draw();
+				//var v:Boolean = path.onScreen();
+				*/
+			}
+		
+			private function onMapReady(event:MMapEvent):void{
+				
+				map.setContinuousZoom(false);
+				
+			}
+			
+			private function init():void{
+				//AppCore.instance().setAmfServerUrl("http://localhost:8520/gateway/");
+				//this.layerchina.url =AppCore.instance().getMapServerUrl();
+				//this.layerchina.layer.redraw();
+				
+				pyamf.uri = AppCore.instance().getAmfServerUrl();	
+				
+				//_aolayer2 = new MapAoLayer(map);
+				
+				//fxmap.map.addLayer(_aolayer2);
+				
+				this.onAfterLogin();
+				dt_end.setValue(new Date() ); //当天00::00 - 至今时间刻度
+				/*
+				playtimer.addEventListener(TimerEvent.TIMER,onReplayTimer); //回放回调				
+				
+				//启动回放定时器
+				this.playtimer.start();
+				*/
+				//test();
+			}
+			
+			//回放定时器启动
+			private function onReplayTimer(event:TimerEvent):void{
+					//一检测到数据开始被同步则立刻停止回放
+					if( this.data_dirty == true){
+						replayStop();
+						return;
+					}					
+					if( this.playstatus != PLAY_RUNNING){
+						return;
+					}
+					this.indicator.stepSize = 5; //parseInt(cbxSpeed.selectedItem.value) ;
+					this.indicator.changeValueByStep();
+						//changeValueByStep
+					//this.indicator.value = parseInt(cbxSpeed.selectedItem.value) + this.indicator.value;
+					//定位显示ao对象时间
+				//	replaySeek();
+					if( this.indicator.value >= this.indicator.maximum ){
+						replayStop();
+					}
+			}
+			
+			private function replaySeek():void{
+				
+				var tick:int;
+				tick =  this.indicator.value;
+				var n:int;
+				for(n=0;n<selectItems.length;n++){
+					var ao:Object;
+					ao = selectItems[n];
+					var mao:MapAo = _aolayer2.getMapAoById( ao.id); //从server上拉下来的aoid
+					var d:Object;
+					d = mao.getActiveObject().getDataQueue().getModuleDataByTime( ActiveObjectData.GPS,tick);
+					if( d){
+						mao.setGpsData(d);
+						ckCenter_clickHandler(null);
+						ckShowTimeTick_changeHandler(null);
+					}					
+				}
+				
+			}
+			
+			//登录成功调用
+			private function onAfterLogin():void{
+				//fxmap.map.addEventListener(FeatureEvent.FEATURE_CLICK,onAoClick);
+	
+			}
+			
+		
+			
+			//Ao对象地图居中
+			private function setMapCenterAo(ao:ActiveObject):void{
+				if(ao == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer2.getMapAoById(ao.getId());
+				mao.moveCenter();
+			}
+			
+		
+			
+			protected function pleft_clickHandler(event:MouseEvent):void
+			{
+				var w:int = vgleft.width;				
+			//	vgleft.width = vgcache[1];
+				//vgcache[1] = w;
+			//	
+			//	vgleft.visible = vgleft.width?true:false;
+				
+			}
+		 
+		//添加回放ao对象
+			protected function btnAddAo_clickHandler(event:MouseEvent):void
+			{
+				var pt1:Point;
+				var pt2:Point;
+				aolistselect.x =event.localX; // (event.currentTarget as UIComponent).x;				
+				pt1 = dgAoList.localToGlobal(new Point(0,0));
+				pt2 = btnAddAo.localToGlobal(new Point(0,0));			
+				aolistselect.y =  (pt2.y  - pt1.y); //(event.currentTarget as UIComponent).y;				
+				aolistselect.displayPopUp = true;	
+				formSelectAo.init(callback_SelectAoList); 
+			}
+			
+			
+			// aos -  从server上获取的ao对象数据
+			private function callback_SelectAoList(aos:Array):void{
+				//Alert.show(aoids.toString());	
+				aolistselect.displayPopUp = false;
+				//回放ao对象数量限制，不能大于5
+				var items:ArrayCollection =selectItems;  //dgAoList.dataProvider as ArrayCollection;
+				var n:int;
+				var m:int;
+				var newaos:Array = new Array();
+				//检测选择的ao是否已经存在列表中了
+				for(m=0;m<aos.length;m++){
+					var ocurr:Boolean = false;
+					for(n=0;n<items.length;n++){
+							if( items[n].id == aos[m].id){
+								ocurr = true;
+								break
+							}
+					}
+					if(!ocurr){
+						newaos.push(aos[m]);
+					}					
+				}
+				
+				var maxitems:int;
+				maxitems = parseInt(AppCore.instance().getSysParamValue("max.replay.aonum","5").toString());
+				
+				//最大允许5个ao对象
+				for(n=0;n< (maxitems - items.length);n++){
+					if( newaos.length){
+						items.addItem( newaos[0]); //加入第一个对象
+						
+						var ao:ActiveObject = new ActiveObject(newaos[0]); 
+						var aoc:AoCollector =AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY); 
+						//var aoc2:AoCollector =AppCore.instance().getAoCollector();
+						aoc.addActiveObject(ao); //添加到回放ao控制集合
+						
+						this.data_dirty = true; //数据必须要重新下载
+						
+						newaos.shift();
+						//创建地图对象 MapAo
+						var mao:MapAo = new MapAo(ao,_aolayer2);	
+					}
+				} 
+				
+				
+				
+			}
+			
+			//删除列表对象，删除缓冲回放数据
+			protected function btnDelAo_clickHandler(event:MouseEvent):void
+			{
+				if( dgAoList.selectedItems.length == 0 ){
+					return;
+				}
+				var n:int;
+				var ao:ActiveObject; 
+				var aoc:AoCollector;
+				aoc =AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY);
+				var aoids:Array = new Array();
+				
+				for(n=0;n< dgAoList.selectedItems.length;n++){
+					var obj:Object = dgAoList.selectedItems[n];
+					aoc.removeActiveObject(parseInt(  obj.id )); //删除activeobject,一旦删除将从layer上移除所有的mao对象及其path和marker
+					aoids.push(obj.id);	
+				}
+				for(n=0;n<aoids.length;n++){
+					var ds:ArrayCollection = dgAoList.dataProvider as ArrayCollection;
+					for(var m:int=0;m< ds.length;m++){
+						if( ds.getItemAt(m).id == aoids[n] ){
+							ds.removeItemAt(m);
+							break;
+						}
+					}
+				}
+				this._currAo = null;
+			}
+
+			
+			protected function btnPlay_clickHandler(event:MouseEvent):void
+			{
+				if( playstatus == PLAY_STOPPED ){
+					if( this.data_dirty == true){
+						Alert.show("对象数据未读取，请先同步数据!");
+						return ;
+					}
+					replayStart();
+					//开始回放
+				}else if( playstatus == PLAY_RUNNING){
+					replayStop();					
+				}						
+			}
+
+			protected function replayStart():void{
+				//设置进度条 时间
+				
+				//清除时间显示
+				textTimeShow.text="";
+				//indicator.minimum = dt_start.getValue().time/1000;
+				//indicator.maximum = dt_end.getValue().time/1000;
+				indicator.value = indicator.minimum;
+				indicator.stepSize = 5;
+				playstatus  = PLAY_RUNNING;
+				//btnPlay.label ="停止";				
+				
+			}
+			/*
+			//设置当前焦点活动Ao对象
+			private function setCurrentActiveObject(ao:ActiveObject):void{
+				var mao:MapAo;
+				if(_currAo){ //清楚显示轨迹和居中
+					mao = this._aolayer2.getMapAoById(_currAo.getId());
+					mao.showPath(false);					
+				}
+				_currAo = ao;
+				mao = this._aolayer2.getMapAoById(_currAo.getId());
+				
+				ckCenter_clickHandler(null);
+				ckShowTimeTick_changeHandler(null);
+				ckShowPath_changeHandler(null);
+			}
+			*/
+			protected function ckCenter_clickHandler(event:MouseEvent):void
+			{
+				if(ckCenter.selected == true && _currAo){ // 即可居中显示
+					this.setMapCenterAo(_currAo);
+				}
+			}
+			
+			protected function ckShowPath_changeHandler(event:Event):void
+			{
+				if(_currAo == null){
+					return;
+				}
+				var mao:MapAo = this._aolayer2.getMapAoById(_currAo.getId());								
+				mao.showPath(ckShowPath.selected );
+				//if( ckShowPath.selected == false){
+				//	ckShowTimeTick.selected =false; 
+				//}
+			}
+			
+			protected function ckShowTimeTick_changeHandler(event:Event):void
+			{				
+				if(this._currAo == null){
+					return;
+				}
+				var mao:MapAo;
+				mao = this._aolayer2.getMapAoById(_currAo.getId());	
+				mao.getPath().setTickTimeGap(parseInt(cbxTimeTickGap.selectedItem.value));
+				//mao.getPath().setTicksVisible( this.ckShowTimeTick.selected);				
+			}
+			
+			
+			protected function formatDateTime(dt:Date):String{
+				return StringUtils.sprintf("%d-%d-%d %d:%d:%d",dt.fullYear,dt.month+1,dt.date,dt.hours,dt.minutes,dt.seconds);
+			}
+			
+			protected function showReplayIndicatedTime(val:Number):Object {
+				trace(val);
+				return formatDateTime(new Date(val*1000) );
+			}
+			
+			//读取回放轨迹
+			protected function btnPrepare_clickHandler(event:MouseEvent):void
+			{
+				var n:int;
+				var aos:ArrayCollection = dgAoList.dataProvider as ArrayCollection;
+				//检测时间
+				if( dt_start.getValue() >= dt_end.getValue() ){
+					Alert.show("查询起始时间不能小于结束时间!");
+					return;
+				}
+				if(aos.length == 0){
+					Alert.show("请添加回放对象!");
+					return ;
+				}
+				var aoids:Array = new Array();
+				for(n=0;n<aos.length;n++){
+					var aoid:int = parseInt(aos[n].id);
+					aoids.push(aoid);										
+				}
+				//replayStop();
+				this.data_dirty = true;
+				//请求 aos轨迹信息
+				server.getAoReplayTrackData(  aoids,dt_start.getValue(),dt_end.getValue());
+				
+				//for(n=0;n<selectItems.length
+			}
+			
+			protected function replayStop():void{
+				playstatus = PLAY_STOPPED;
+				//btnPlay.label = "播放";			
+				textTimeShow.text ="";
+				indicator.value = indicator.minimum;
+			}
+
+			//拖动历史轨迹时间轴
+			protected function indicator_changeHandler(event:Event):void
+		{
+			 	this.textTimeShow.text = 	formatDateTime(new Date(this.indicator.value*1000) );
+				//replaySeek();	//定位到ao到这个时间点
+				//trace("indicator_changeHandle()");
+				seekPos();
+			}
+
+			private function seekPos():void{
+				var ao:ActiveObject ;
+				var mao:MapAo;
+				var aoc:AoCollector = AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY);
+				var aod:Object;
+				var d:Object;
+				
+				var tick:int;
+				tick =  indicator.value;
+				var n:int;
+				
+				//ao = aoc.getActiveObject( aod.id
+				
+				for(n=0;n<selectItems.length;n++){					
+					aod = selectItems[n];
+					mao = _aolayer2.getMapAoById( aod.id); //从server上拉下来的aoid					
+					d = mao.getActiveObject().getDataQueue().getModuleDataByTime( ActiveObjectData.GPS,tick);
+					if( d){
+						mao.setGpsData(d);						
+					}					
+				}
+				
+				//显示轨迹点的gps信息	
+				showAoTrackStatus(this._currAo);
+			}
+			
+			private function showAoTrackStatus(ao:ActiveObject):void{
+				//显示ao属性			
+				var attrs:Array ;
+				var o:Object;
+				var gps:Object;
+				var str:String;
+				
+				if( ao == null){
+					return;
+				}
+				
+				gps = ao.getGpsData();
+				if( gps ==null){
+					return ;
+				}
+				attrs = new Array();				
+				o = new Object();	o.name = "名称";	o.value = ao.getInfo().name;	attrs.push(o);				
+				
+				o = new Object();	o.name = "通信服务器";	o.value = ao.getInfo().dasid;	attrs.push(o);	
+				var time:Date = new Date(gps.systime*1000); // as is million seconds
+				str = StringUtils.sprintf("%d-%d-%d %d:%d:%d",time.fullYear,time.month+1,time.date,time.hours,time.minutes,time.seconds);
+				o = new Object();	o.name = "时间";	o.value =str;	attrs.push(o);
+				str = StringUtils.sprintf("%.4f",gps.lon);
+				o = new Object();	o.name = "经度";	o.value = str;	attrs.push(o);
+				str = StringUtils.sprintf("%.4f",gps.lat);
+				o = new Object();	o.name = "维度";	o.value = str;	attrs.push(o);
+				str = StringUtils.sprintf("%d公里/小时",gps.speed);
+				o = new Object();	o.name = "速度";	o.value = str;		attrs.push(o);
+				str = "打开";
+				if( gps.power ==0){
+					str = "关闭";
+				}
+				o = new Object();	o.name = "电源状态";	o.value = str;		attrs.push(o);
+				str = "打开";
+				if( gps.acc ==0){
+					str = "关闭";
+				}
+				o = new Object();	o.name = "发动机状态";	o.value = str;		attrs.push(o);
+				str = StringUtils.sprintf("%d公里",gps.miles);
+				o = new Object();	o.name = "里程计数";	o.value = str;	attrs.push(o);
+				
+				
+				//o = new Object();	o.name = "可见星数";	o.value = gps.satenum;	attrs.push(o);
+				//o = new Object();	o.name = "定位星数";	o.value = gps.sateused;	attrs.push(o);
+				
+				//aoAttributes.dataProvider =new ArrayCollection(attrs);
+				this.aoAttributes.dataProvider =new ArrayCollection(attrs);
+			}
+			
+		
+			protected function dgAoList_changeHandler(event:ListEvent):void
+			{
+				if( dgAoList.selectedItem == null){
+					return ;
+				}		
+				var aoc:AoCollector = AppCore.instance().getAoCollector(AoCollector.COLLECTOR_REPLAY);
+				var aoid:int = dgAoList.selectedItem.id;
+				
+				this.showCurrentAoPath(aoid);
+			}
+
+			protected function ckCenter_changeHandler(event:Event):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+			protected function cbxTimeTickGap_changeHandler(event:IndexChangeEvent):void
+			{
+				var aoc:AoCollector = AppCore.instance().getAoCollector( AoCollector.COLLECTOR_REPLAY);
+				var ao:ActiveObject;
+				var mao:MapAo;
+				if(_currAo==null){
+					return ;
+				}	
+				var aoid:int;
+				aoid = _currAo.getInfo().id;
+				
+				ao  = aoc.getActiveObject(aoid);
+				mao = _aolayer2.getMapAoById(aoid);
+				
+				
+				if(ckShowPath.selected){
+					//mao.showPath();
+					mao.getPath().setTickTimeGap( parseInt(cbxTimeTickGap.selectedItem.value));
+					//mao.getPath().setTicksVisible(true);					
+				}
+				
+			}
+
+
+			protected function ckShowPath_clickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+			protected function btnForward_clickHandler(event:MouseEvent):void
+			{
+				this.indicator.value -= indicator.stepSize;
+				this.indicator_changeHandler(null);
+			}
+
+
+			protected function btnBack_clickHandler(event:MouseEvent):void
+			{
+				this.indicator.value += indicator.stepSize;
+				this.indicator_changeHandler(null);
+				
+			}
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="ReplayWindow"/>
+	</s:states>
+	
+	
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	
+
+	
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<s:VGroup width="280" height="100%" id="vgleft">
+			<mx:ViewStack id="viewstack1" width="100%" height="100%">
+				
+				<mx:VDividedBox label="" width="100%" height="100%">
+					<s:Panel width="100%" height="100%" title="回放控制" cornerRadius="5" textAlign="left" id="paneAoList">
+						<s:layout>
+							<s:VerticalLayout horizontalAlign="center" gap="1" paddingLeft="2" paddingTop="2" paddingRight="2"/>
+						</s:layout>
+						<mx:DataGrid width="100%" height="100%" id="dgAoList" dataProvider="{selectItems}" allowMultipleSelection="true" change="dgAoList_changeHandler(event)" horizontalGridLines="true">
+							<mx:columns>
+								<mx:DataGridColumn headerText="名称" dataField="name"/>
+							</mx:columns>
+						</mx:DataGrid>
+						
+						<s:PopUpAnchor id="aolistselect">
+							<local:FormSelectAoList mouseDownOutside="aolistselect.displayPopUp = false" id="formSelectAo"/>
+						</s:PopUpAnchor>
+						
+						<s:HGroup width="100%" height="27" verticalAlign="middle">
+							<s:Button label="添加" width="60" id="btnAddAo" click="btnAddAo_clickHandler(event)" height="26"/>
+							<s:Button label="删除" width="60" id="btnDelAo" click="btnDelAo_clickHandler(event)" height="26"/>
+							<s:Button label="读取轨迹" width="86" id="btnPrepare" click="btnPrepare_clickHandler(event)" chromeColor="#F3310A" height="26"/>
+						</s:HGroup>
+						
+						<s:HGroup width="100%" height="27" verticalAlign="middle">
+							<s:Label text="开始时间"/>
+							<ui:DateTimeChooser id="dt_start"/>
+							
+						</s:HGroup>
+						<s:HGroup width="100%" height="27" verticalAlign="middle">
+							<s:Label text="结束时间"/>
+							<ui:DateTimeChooser id="dt_end"/>
+							
+						</s:HGroup>
+						
+						<s:HGroup width="100%" height="10" verticalAlign="middle" paddingLeft="2" paddingRight="3">
+						</s:HGroup>
+						<s:HGroup width="100%" height="24" verticalAlign="middle">
+							<s:Label text="时间标记"/>
+							<s:DropDownList width="84" labelField="name" selectedIndex="1" id="cbxTimeTickGap"  change="cbxTimeTickGap_changeHandler(event)">
+								<s:dataProvider>
+									<s:ArrayCollection>
+										<fx:Object name="关闭" value="0"/>
+										<fx:Object name="1 分钟" value="60"/>
+										<fx:Object name="5 分钟" value="300"/>
+										<fx:Object name="10 分钟" value="600"/>								
+										<fx:Object name="30 分钟" value="1800"/>
+										<fx:Object name="1 小时" value="3600"/>
+										<fx:Object name="2 小时" value="7200"/>
+									</s:ArrayCollection>
+								</s:dataProvider>
+							</s:DropDownList>
+							<s:CheckBox label="显示围栏" id="ckShowBarrier"/>
+						</s:HGroup>
+					</s:Panel>
+					<s:Panel width="100%" height="100%" title="焦点对象" cornerRadius="5">
+						<s:layout>
+							<s:VerticalLayout gap="1" paddingBottom="6"/>
+						</s:layout>
+						<s:HGroup width="100%" height="30" verticalAlign="middle">
+							<s:CheckBox label="显示路径" id="ckShowPath"  selected="true" change="ckShowPath_changeHandler(event)" />
+							<s:CheckBox id="ckCenter" label="居中显示" enabled="true" selected="false" change="ckCenter_changeHandler(event)" click="ckCenter_clickHandler(event)"/>
+						</s:HGroup>
+						<mx:TabNavigator width="100%" height="100%" dropShadowVisible="false" y="30" cornerRadius="4" paddingTop="0">
+							
+							<s:NavigatorContent label="属性" width="100%" height="100%">
+								<s:layout>
+									<s:VerticalLayout/>
+								</s:layout>
+								<mx:DataGrid width="100%" height="100%" showHeaders="false" id="aoAttributes"  horizontalGridLines="true">
+									<mx:columns>
+										<mx:DataGridColumn headerText="name" dataField="name" />
+										<mx:DataGridColumn headerText="value" dataField="value"/>
+									</mx:columns>
+								</mx:DataGrid>
+							</s:NavigatorContent>
+							<s:NavigatorContent label="报警" width="100%" height="100%">
+								<s:layout>
+									<s:VerticalLayout gap="1"/>
+								</s:layout>
+								<mx:DataGrid width="100%" height="100%" showHeaders="false" id="aoTracks" >
+									<mx:columns>
+										<mx:DataGridColumn headerText="name" dataField="col1"  width="100"/>
+										<mx:DataGridColumn headerText="LonLat" dataField="col2"/>
+									</mx:columns>
+								</mx:DataGrid>
+							</s:NavigatorContent>
+							<s:NavigatorContent label="事件" width="100%" height="100%">
+								<s:layout>
+									<s:BasicLayout/>
+								</s:layout>
+							</s:NavigatorContent>
+						</mx:TabNavigator>
+					</s:Panel>
+				</mx:VDividedBox>
+				
+			</mx:ViewStack>
+		</s:VGroup>
+		
+		<s:VGroup width="100%" height="100%">
+					<s:HGroup width="100%" height="31" verticalAlign="middle">
+								<s:Button label="&lt;&lt;" width="40" id="btnForward" click="btnForward_clickHandler(event)"/>
+								<s:Button label="&gt;&gt;" width="40" id="btnBack" click="btnBack_clickHandler(event)"/>
+								<s:HSlider width="100%" id="indicator" minimum="0" maximum="100"
+										   showDataTip="true" 	dataTipFormatFunction="showReplayIndicatedTime" change="indicator_changeHandler(event)"/>
+								<s:HGroup width="245" height="24" verticalAlign="middle">
+									<s:Label text="时间刻度"/>
+									<s:TextInput width="195" id="textTimeShow"/>
+								</s:HGroup>
+					</s:HGroup>
+					
+			<mapabcMap:MFlexMap xmlns:mapabcMap="com.mapabc.maps.api.*"  id="map" t="flexmap" v="2.3.3" 									
+								key="{['c5a28e037ca748d7fa3203a36e9c5b78cbffc58c6c2797f2058283b9593291fca2f9089808daad33']}" 										
+								overviewMap="{MDisplayState.HIDE}"   
+								zoom="12" width="100%" height="100%" 
+								centerCross="{MDisplayState.HIDE}"
+								centerLng="121.30" centerLat="31.20"
+								MapReady="onMapReady(event)"
+								toolbar="/v2.3ToolbarNew.swf"
+								/>
+			
+		</s:VGroup>
+	</s:HGroup>
+
+	
+	
+</s:Group>

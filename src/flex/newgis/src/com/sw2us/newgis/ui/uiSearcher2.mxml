@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="662" height="30">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle" gap="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			 xmlns:s="library://ns.adobe.com/flex/spark" 
+			 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" textAlign="center">
+		<s:layout>
+			<s:HorizontalLayout gap="4" verticalAlign="middle"/>
+		</s:layout>
+		<fx:Declarations>
+			<!-- Place non-visual elements (e.g., services, value objects) here -->
+		</fx:Declarations>
+		<fx:Script>
+		<![CDATA[
+			public function getParams():Object{
+				var ret:Object = new Object();
+				ret.type = parseInt(ddl_type.selectedItem.value);
+				ret.type2 = parseInt(dll_type2.selectedItem.value);
+				ret.start = dt_start.selectedDate;
+				ret.end = dt_end.selectedDate;
+				ret.text = edt_text.text;
+				return ret
+			}
+			
+		]]>
+	</fx:Script>
+		<s:Label text="查询按："/>
+		<s:DropDownList id="ddl_type" labelField="name"  selectedIndex="0">
+			<s:dataProvider>
+				<s:ArrayCollection id="memberfind_type">
+					<fx:Object name="登录名" value="0"/>
+					<fx:Object name="会员名称" value="1"/>
+				</s:ArrayCollection>
+			</s:dataProvider>
+		</s:DropDownList>
+		<s:DropDownList id="ddl_type2" labelField="name" selectedIndex="0">
+			<s:dataProvider>
+				<s:ArrayCollection id="walletlog_type">
+					<fx:Object name="所有" value="0"/>
+					<fx:Object name="充值" value="1"/>
+					<fx:Object name="报单" value="2"/>
+					<fx:Object name="转出" value="3"/>
+					<fx:Object name="转入" value="4"/>
+					<fx:Object name="奖金" value="5"/>
+					<fx:Object name="提款" value="6"/>
+					<fx:Object name="取消提款" value="7"/>
+					<fx:Object name="增加" value="8"/>
+					<fx:Object name="扣除" value="9"/>			
+				</s:ArrayCollection>
+		</s:dataProvider>
+		</s:DropDownList>
+		<s:TextInput id="edt_text"/>
+		<s:Label text="日期:"/>
+		<mx:DateField id="dt_start" formatString="YYYY-MM-DD"/>
+		<s:Label text="--"/>
+		<mx:DateField id="dt_end" formatString="YYYY-MM-DD"/>
+	</s:Group>
+</s:Group>

@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300"
+		 creationComplete="init()" width.MainPlay="100%" height.MainPlay="100%"
+		 xmlns:org="http://openscales.org"
+		  xmlns:fxg="assets.fxg.*">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Style source="newgis.css"/>
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="tobacco" showBusyCursor="true">
+			 
+			
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.*;
+			import com.sw2us.newgis.*;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.map.MapAo;
+			import com.sw2us.newgis.map.MapAoLayer;
+			import com.sw2us.newgis.map.MapAoMarker;
+			import com.sw2us.newgis.ui.DialogInputLineText;
+			
+			import flashx.textLayout.tlf_internal;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.events.FeatureEvent;
+			import org.openscales.core.events.MapEvent;
+			import org.openscales.core.feature.CustomMarker;
+			import org.openscales.core.feature.Feature;
+			import org.openscales.core.feature.LineStringFeature;
+			import org.openscales.core.feature.MultiPolygonFeature;
+			import org.openscales.core.feature.PointFeature;
+			import org.openscales.core.feature.PolygonFeature;
+			import org.openscales.core.format.WKTFormat;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.core.style.Rule;
+			import org.openscales.core.style.Style;
+			import org.openscales.core.style.fill.SolidFill;
+			import org.openscales.core.style.stroke.Stroke;
+			import org.openscales.core.style.symbolizer.PolygonSymbolizer;
+			import org.openscales.core.style.symbolizer.Symbolizer;
+			import org.openscales.geometry.LineString;
+			import org.openscales.geometry.Point;
+			import org.openscales.geometry.Polygon;
+			import org.openscales.geometry.basetypes.*;
+			
+			import spark.events.IndexChangeEvent;
+			
+			public var _aolist:ArrayCollection = null; // ao 对象列表
+			public var _sysparams:Object =null;	//系统参数
+			
+			public var _currAo:ActiveObject = null;	//当前活动Ao对象
+			private var _layer_admin:FeatureLayer;
+			private var _layer_store:FeatureLayer;
+			//[Bind]
+			//private var _currAoAttributes:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			[Embed(source="./assets/ao_car_24x24_180.png")] 
+			public var aoItem:Class;
+			
+			
+			
+			[Bind]
+			private var _currAoGspTrack:ArrayCollection = new ArrayCollection(); //gps跟踪信息
+			
+		 	 
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+	 
+			 
+			private var admin_list:ArrayCollection = null;
+			private var store_list:ArrayCollection = null;
+			
+		 
+			
+			private function test():void{
+		 
+				 
+			}
+			
+			private var timer:Timer = new Timer(1000);
+			
+			private function init():void{			
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				
+				//pyamf.uri = AppCore.instance().getAmfServerUrl();				
+			 
+				zoomlevels.text =layerchina.layer.minZoomLevel.toString() + "-"+ layerchina.layer.maxZoomLevel.toString();
+				zoomstart.text = layerchina.layer.minZoomLevel.toString();
+				zoomend.text = layerchina.layer.maxZoomLevel.toString();
+				 
+				//timer.addEventListener(TimerEvent.TIMER,onTimer);
+				fxmap.map.addEventListener(MapEvent.MOVE_END,onMapMoveEnd);
+			}
+ 
+			private function onMapMoveEnd(event:MapEvent):void{
+				txtRes.text = fxmap.map.resolution.toString();
+			}
+			
+			private var  currxy:Location ;
+			
+			private function onTimer(event:TimerEvent):void{
+				dorunmap();
+			}
+			
+		
+			
+
+			
+			private var rows:int ;
+			private var cols:int;
+			private var cell:int;
+			
+			private function dorunmap():void{
+				
+				var list:Array = map_startxy.text.split(",");
+			
+				var x1:Number = parseFloat(list[0]);
+				var y1:Number = parseFloat(list[1]);			
+				list= map_endxy.text.split(",");						
+				var x2:Number = parseFloat(list[0]);
+				var y2:Number = parseFloat(list[1]);
+				
+				
+				var x:int;
+				var y:int;
+				y = cell/cols;
+				x = cell%cols;
+				var loc:Location = new Location( x1+x*fxmap.map.resolution*256,y1+y*fxmap.map.resolution*256);
+				map_currxy.text = loc.toString();
+				
+				if(parseInt(zoomstart.text)>layerchina.layer.maxZoomLevel){
+					timer.stop();
+					return;
+				}
+				
+				fxmap.map.zoom =parseInt(zoomstart.text);
+				fxmap.map.center = loc;
+				
+				cell +=1;
+				if( cell > rows*cols){
+					var list:Array = map_startxy.text.split(",");
+					
+					var x1:Number = parseFloat(list[0]);
+					var y1:Number = parseFloat(list[1]);
+					currxy = new Location(x1,y1);
+					
+					list= map_endxy.text.split(",");
+					
+					var x2:Number = parseFloat(list[0]);
+					var y2:Number = parseFloat(list[1]);
+					
+					zoomstart.text = (parseInt(zoomstart.text)+1).toString();
+					fxmap.map.zoom =parseInt(zoomstart.text);
+					rows = (y2-y1) / (fxmap.map.resolution*256);
+					cols = (x2 - x1)/(fxmap.map.resolution*256);
+					cell = 0;
+				}
+										
+				
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				var list:Array = map_startxy.text.split(",");
+				 
+				var x1:Number = parseFloat(list[0]);
+				var y1:Number = parseFloat(list[1]);
+				currxy = new Location(x1,y1);
+				
+				list= map_endxy.text.split(",");
+				 
+				var x2:Number = parseFloat(list[0]);
+				var y2:Number = parseFloat(list[1]);
+				
+				
+				fxmap.map.zoom =parseInt(zoomstart.text);
+				
+				
+				rows = (y2-y1) / (fxmap.map.resolution*256);
+				cols = (x2 - x1)/(fxmap.map.resolution*256);
+				cell = 0;
+				
+				timer.delay = parseInt(speed.text);
+				timer.start();
+				
+				
+			}
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="ReplayWindow"/>
+	</s:states>
+	
+	 
+	
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<s:VGroup width="320" height="100%" id="vgleft">
+			<mx:ViewStack id="viewstack1" width="100%" height="100%">
+				
+				<mx:VDividedBox label="" width="100%" height="100%">
+					<s:Panel width="100%" height="100%" title="对象列表" cornerRadius="5" textAlign="left">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:Label x="10" y="30" text="地图起始点:"/>
+						<s:Label x="10" y="63" text="地图结束点"/>
+						<s:TextInput x="81" y="20" text="120,30" id="map_startxy"/>
+						<s:TextInput x="78" y="53" text="122,32" id="map_endxy"/>
+						<s:Button x="74" y="300" label="开跑" width="110" height="35" click="button1_clickHandler(event)"/>
+						<s:Label x="15" y="121" text="DPI"/>
+						<s:TextInput x="79" y="111" text="72" id="dpi"/>
+						<s:Label x="15" y="150" text="TileSize"/>
+						<s:TextInput x="79" y="141" text="256,256" id="tilesize"/>
+						<s:Label x="8" y="193" text="zoom Start"/>
+						<s:TextInput x="73" y="183" text="0" id="zoomstart"/>
+						<s:Label x="6" y="224" text="zoom end"/>
+						<s:TextInput x="74" y="214" text="10" id="zoomend"/>
+						<s:Label x="4" y="248" text="zoom leves"/>
+						<s:Label x="74" y="240" text="10" width="87" height="25" verticalAlign="middle" id="zoomlevels"/>
+						<s:Label x="12" y="97" text="当前点"/>
+						<s:TextInput x="80" y="87" text="120,30" id="map_currxy" width="228"/>
+						<s:TextInput x="74" y="270" text="1000" id="speed"/>
+						<s:Label x="11" y="280" text="速度"/>
+						<s:Label x="11" y="356" text="resolutions"/>
+						<s:Label x="92" y="356" text="标签" width="145" id="txtRes"/>
+					</s:Panel>
+				</mx:VDividedBox>
+				
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="100%" height="100%">
+			<s:HGroup width="100%" height="25" verticalAlign="middle">
+				<mx:LinkButton label="&lt;&lt;" id="pleft"/>
+				<mx:LinkBar dataProvider="{viewstack2}">
+				</mx:LinkBar>
+				<s:Label text="提示:"/>
+				<s:Label width="100%" id="txtTips" color="#F11818" fontSize="23"/>
+				<mx:LinkButton label="&gt;&gt;" id="pright" />
+			</s:HGroup>
+			<mx:ViewStack id="viewstack2" width="100%" height="100%">
+				<s:NavigatorContent label="主视图" width="100%" height="100%">
+					<s:layout>
+						<s:VerticalLayout/>
+					</s:layout>
+					
+					
+					<org:Map id="fxmap" width="100%" height="100%"  
+							 zoom="5" 
+							 center="121.486,30.95" >
+						<org:layout>
+							<s:BasicLayout/>
+						</org:layout>
+						<!--
+						<org:WMSC id="layerchina" x="168" y="209"  layers="china" 		 
+								  resolutions="4.7416367980884103e-06, 8.2978643966547182e-06, 1.1854091995221027e-05,  
+								  1.7781137992831539e-05, 2.3708183990442054e-05, 4.7416367980884108e-05, 0.00011854091995221028, 
+								  0.00023708183990442055, 0.0004741636798088411, 0.00094832735961768221,
+								  0.0016595728793309438, 0.0023708183990442055, 0.0047416367980884109, 0.011854091995221026, 
+								  0.023708183990442052, 0.047416367980884104, 0.094832735961768208"  
+								  width="88">
+							
+						</org:WMSC>
+						--> 
+						
+						<org:WMSC id="layerchina" x="168" y="209"  layers="china" 		 
+								  resolutions="  0.000005, 0.000008, 0.000012, 0.000018, 0.000024, 0.000047, 0.000119, 0.000237,
+								  0.000474, 0.000948, 0.001660, 0.002371, 0.004742, 0.011854, 0.023708, 0.047416,
+								  0.094833"  
+								  width="88">
+							
+						</org:WMSC>
+						
+						
+						<org:MousePosition numdigits="4.4"  id="llpos" x="10" y="{fxmap.height-20}" width="195"   >
+						</org:MousePosition>
+						<org:DragHandler  />
+						<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+						</org:PanZoom>
+						
+						<org:ScaleLine id="scaline" x="{fxmap.width - 200}" y="{fxmap.height-80}" map="{fxmap.map}"></org:ScaleLine>	
+						<org:WheelHandler/>
+						
+						<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+						<!-- 加载时候的沙漏-->
+						
+						
+						<!--<org:FeatureDrawing x="0" y="{height-200}"/>-->
+						<org:FeatureLayer id="aolayers" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+						<org:FeatureLayer id="aolayer" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+					</org:Map>
+				</s:NavigatorContent>
+				<s:NavigatorContent label="报表日志" width="100%" height="100%">
+				</s:NavigatorContent>
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="111" height="100%" id="vgright">
+			<s:Panel width="250" height="350" title="焦点对象" cornerRadius="5">
+				<s:layout>
+					<s:VerticalLayout gap="1"/>
+				</s:layout>
+			</s:Panel>
+			<s:Panel width="250" height="100%" title="其他">
+				<s:layout>
+					<s:VerticalLayout gap="0"/>
+				</s:layout>
+			</s:Panel>
+		</s:VGroup>
+	</s:HGroup>
+
+</s:Group>

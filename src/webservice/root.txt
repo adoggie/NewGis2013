@@ -1,0 +1,5 @@
+{
+	"administrators":[
+		{"user":"admin","passwd":"111111","rights":255}
+		]
+}

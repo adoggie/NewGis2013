@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="290" height="236">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="contentJustify"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<s:method name="getActiveObjectListByName" result="getActiveObjectListByName_result(event)" fault="onfault(event)"/>
+			 		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.AppCore;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.INavigatorContent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private  var _resultcall:Function = null;
+			
+			public static function show(parent:DisplayObject,result:Function = null):FormSelectAoList{
+				var form:FormSelectAoList = FormSelectAoList(PopUpManager.createPopUp(parent,FormSelectAoList,true))	;							
+				form._resultcall = result;
+				PopUpManager.centerPopUp(form);
+				return form;
+			}
+			
+			public function init(cb:Function=null):void{
+				callresult = cb;
+			}
+			
+			public function set callresult(cb:Function):void{
+				_resultcall = cb;				
+				pyamf.uri = AppCore.instance().getAmfServerUrl();	
+				onsearch();
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail,"系统处理错误!");
+			}		
+			
+			private function getActiveObjectListByName_result(event:ResultEvent):void{
+				var result:Object = event.result.result;
+				dg.dataProvider = new ArrayCollection( result as Array); //必须是collection类型才可以刷新				
+			}
+			
+			protected function onsearch(pgctrl:Object=null):void{			
+				server.getActiveObjectListByName(edtcontent.text);				
+			}
+
+			protected function btncancel_clickHandler(event:MouseEvent):void
+			{
+				//PopUpManager.removePopUp(this);
+			}
+
+			//选择
+			protected function btnok_clickHandler(event:MouseEvent):void
+			{
+				var aos:Array = new Array();
+				for(var n:int=0;n<dg.selectedItems.length;n++){
+					//aoids.push(dg.selectedItems[n].id);
+					aos.push(dg.selectedItems[n]);
+				}
+				if(_resultcall !=null){
+					_resultcall(aos);
+				}
+				//PopUpManager.removePopUp(this);
+			}
+
+
+			protected function btnsearch_clickHandler(event:MouseEvent):void
+			{
+				this.onsearch();
+			}
+
+
+			protected function dg_doubleClickHandler(event:MouseEvent):void
+			{
+				btnok_clickHandler(null);
+			}
+
+		]]>
+	</fx:Script>
+	
+	<s:Panel width="100%" height="100%" title="位置对象选择" cornerRadius="10">
+		<s:layout>
+			<s:VerticalLayout gap="1"/>
+		</s:layout>
+		<s:HGroup x="131" y="45" width="100%" height="25" verticalAlign="middle" gap="2">
+			<s:Label text="名称:"/>
+			<s:TextInput width="130" id="edtcontent"/>
+			<s:Button label="检索" id="btnsearch" click="btnsearch_clickHandler(event)" width="50"/>
+			<s:Button label="选择" id="btnok" click="btnok_clickHandler(event)" width="50"/>
+		</s:HGroup>
+		<mx:DataGrid width="100%" height="100%" id="dg" allowMultipleSelection="true" doubleClick="dg_doubleClickHandler(event)" doubleClickEnabled="true">
+			<mx:columns>
+				<mx:DataGridColumn headerText="名称" dataField="name"/>
+				<mx:DataGridColumn/>
+			</mx:columns>
+		</mx:DataGrid>
+	</s:Panel>
+</s:Group>

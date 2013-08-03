@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="54" height="90" textAlign="left" rollOverColor="#124A82">
+	<s:layout>
+		<s:VerticalLayout paddingTop="2" gap="2"/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import mx.managers.CursorManager;
+			
+			import org.openscales.core.Map;
+			import org.openscales.core.events.*;
+			
+			private var _map:Map = null;
+			
+			public function initMap(map:Map):void{
+				//_map.addEventListener(MapEvent.MOVE_END
+				_map = map;
+			}
+			
+			private function scaleTo(zoom:int):void{
+				//_map.zoom = zoom;
+				_map.moveTo( _map.center,zoom);
+			}
+			
+			protected function street_clickHandler(event:MouseEvent):void
+			{
+				scaleTo(14);
+			}
+
+			protected function town_clickHandler(event:MouseEvent):void
+			{
+				scaleTo(11);
+			}
+
+
+			protected function dist_clickHandler(event:MouseEvent):void
+			{
+				scaleTo(9);
+			}
+
+
+			protected function city_clickHandler(event:MouseEvent):void
+			{
+				scaleTo(7);
+			}
+
+
+			protected function street_mouseOverHandler(event:MouseEvent):void
+			{
+				
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Label text="- 街道" textDecoration="underline" fontSize="12" color="#D44949" id="street" click="street_clickHandler(event)" mouseOver="street_mouseOverHandler(event)" width="100%" backgroundAlpha="0.59" height="20" verticalAlign="middle" textAlign="center"/>
+	<s:Label text="- 城镇" textDecoration="underline" fontSize="12"  color="#D44949" id="town" click="town_clickHandler(event)" width="100%" backgroundAlpha="0.59" height="20" verticalAlign="middle" textAlign="center"/>
+	<s:Label text="- 区县" id="dist" click="dist_clickHandler(event)" styleName="zoomIndicatorText" width="100%" chromeColor="#031C6D" backgroundAlpha="0.59" height="20" verticalAlign="middle" fontSize="12" textAlign="center"/>
+	<s:Label text="- 省市" textDecoration="underline" fontSize="12" color="#D44949" id="city" click="city_clickHandler(event)" width="100%" backgroundAlpha="0.59" height="20" verticalAlign="middle" textAlign="center"/>
+</s:Group>

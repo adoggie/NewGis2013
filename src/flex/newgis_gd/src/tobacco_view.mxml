@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300"
+		 creationComplete="init()" width.MainPlay="100%" height.MainPlay="100%"
+		 xmlns:org="http://openscales.org"
+		  xmlns:fxg="assets.fxg.*">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="tobacco" showBusyCursor="true">
+			<s:method name="getTobacco_AdminList" result="getTobacco_AdminList_result(event)" fault="onfault(event)"/>
+			<s:method name="getTobacco_StoreList" result="getTobacco_StoreList_result(event)" fault="onfault(event)"/>			
+			<s:method name="getTobacco_StoreListByCity" result="getTobacco_StoreListByCity_result(event)" fault="onfault(event)"/>
+			
+			<s:method name="getTobacco_AllAdminList" result="getTobacco_AllAdminList_result(event)" fault="onfault(event)"/>
+			<s:method name="getTobacco_AllStoreList" result="getTobacco_AllStoreList_result(event)" fault="onfault(event)"/>
+			
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.*;
+			import com.sw2us.newgis.*;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.map.MapAo;
+			import com.sw2us.newgis.map.MapAoLayer;
+			import com.sw2us.newgis.map.MapAoMarker;
+			import com.sw2us.newgis.ui.DialogInputLineText;
+			
+			import flashx.textLayout.tlf_internal;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.events.FeatureEvent;
+			import org.openscales.core.events.MapEvent;
+			import org.openscales.core.feature.CustomMarker;
+			import org.openscales.core.feature.Feature;
+			import org.openscales.core.feature.LineStringFeature;
+			import org.openscales.core.feature.MultiPolygonFeature;
+			import org.openscales.core.feature.PointFeature;
+			import org.openscales.core.feature.PolygonFeature;
+			import org.openscales.core.format.WKTFormat;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.core.style.Rule;
+			import org.openscales.core.style.Style;
+			import org.openscales.core.style.fill.SolidFill;
+			import org.openscales.core.style.stroke.Stroke;
+			import org.openscales.core.style.symbolizer.PolygonSymbolizer;
+			import org.openscales.core.style.symbolizer.Symbolizer;
+			import org.openscales.geometry.LineString;
+			import org.openscales.geometry.Point;
+			import org.openscales.geometry.Polygon;
+			import org.openscales.geometry.basetypes.*;
+			
+			import spark.events.IndexChangeEvent;
+			
+			public var _aolist:ArrayCollection = null; // ao 对象列表
+			public var _sysparams:Object =null;	//系统参数
+			
+			public var _currAo:ActiveObject = null;	//当前活动Ao对象
+			private var _layer_admin:FeatureLayer;
+			private var _layer_store:FeatureLayer;
+			//[Bind]
+			//private var _currAoAttributes:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			[Embed(source="./assets/ao_car_24x24_180.png")] 
+			public var aoItem:Class;
+			
+			
+			
+			[Bind]
+			private var _currAoGspTrack:ArrayCollection = new ArrayCollection(); //gps跟踪信息
+			
+		 	 
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function getTobacco_AdminList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}
+				
+				dgAdmin.dataProvider = new ArrayCollection(cr.result);
+				
+			}
+			
+			
+			private function getTobacco_StoreList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}			
+				dgStorelist.dataProvider = new ArrayCollection(cr.result);
+				
+			}
+			
+			private function getTobacco_StoreListByCity_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}			
+				dgStorelist.dataProvider =  new ArrayCollection(cr.result);				
+			}
+			
+			private var admin_list:ArrayCollection = null;
+			private var store_list:ArrayCollection = null;
+			
+			//获取所有行政区区域信息
+			private function getTobacco_AllAdminList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}			
+				var area:PolygonFeature;
+				var admins:ArrayCollection = new ArrayCollection(cr.result);
+				
+				admin_list = admins; //保存
+				
+				var n:int;
+				var wkt:WKTFormat = new WKTFormat();
+				for(n=0;n<admins.length;n++){
+					var o:Object = admins[n];
+					//var p:Polygon = wkt.read(o.geom) as Polygon;
+					var f:Feature = wkt.read(o.geom) as  Feature;
+					trace(f.toString());
+					var mf:MultiPolygonFeature= f as MultiPolygonFeature ; //wkt.read(o.geom) as MultiPolygonFeature;
+					//trace(o.geom);
+					//var f:Feature = wkt.read(o.geom) as Feature;
+					if( mf == null){
+						continue;
+					}
+					f.data = o;
+					f.style = Style.getDefaultSurfaceStyle();
+					//area = new PolygonFeature(p,o,);
+					//this._layer_admin.addFeature(area);
+					this._layer_admin.addFeature(mf);
+					
+				}
+			}
+			
+			//所有销售点信息
+			private function getTobacco_AllStoreList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}			
+				var store:PointFeature;
+				var rs:ArrayCollection = new ArrayCollection(cr.result);
+				
+				store_list = rs;
+				
+				var n:int;
+				var wkt:WKTFormat = new WKTFormat();
+				for(n=0;n<rs.length;n++){
+					var o:Object = rs[n];
+					//var p:org.openscales.geometry.Point = wkt.read(o.geom) as org.openscales.geometry.Point;
+					var pt:org.openscales.geometry.Point = new org.openscales.geometry.Point();
+					pt.x = rs[n].lon;
+					pt.y = rs[n].lat;
+					store = new PointFeature(pt,o,Style.getDefaultCircleStyle());
+					this._layer_store.addFeature(store);
+				}
+				
+			}
+			
+			private function test():void{
+		 
+				 
+			}
+			
+			
+			private function init():void{			
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				
+				pyamf.uri = AppCore.instance().getAmfServerUrl();				
+			 
+				this.onAfterLogin();
+				_layer_admin = new FeatureLayer("admin");
+				_layer_store = new FeatureLayer("store");
+				fxmap.map.addLayer(_layer_admin);
+				fxmap.map.addLayer(_layer_store);
+				
+				pright_clickHandler(null);
+			}
+			
+			public function updateAdminSaleList():void{
+				server.getTobacco_AdminList(parseInt(ddlYear.selectedItem.value), parseInt(ddlMonth.selectedItem.value));
+			}
+			
+			//登录成功调用
+			private function onAfterLogin():void{				
+				updateAdminSaleList();
+				server.getTobacco_AllAdminList();
+				server.getTobacco_AllStoreList();
+				
+				fxmap.map.addEventListener(FeatureEvent.FEATURE_CLICK,onFeatureClick);
+				fxmap.map.addEventListener(FeatureEvent.FEATURE_OVER,onFeatureOver);
+				fxmap.map.addEventListener(FeatureEvent.FEATURE_OUT,onFeatureOut);
+				fxmap.map.addEventListener(MapEvent.MOVE_END,onMapMoveEnd);
+				//server.getTobacco_StoreList();
+								
+				//设置feature点选事件
+				//fxmap.map.addEventListener(FeatureEvent.FEATURE_CLICK,onAoClick);				
+			}
+			
+			
+			protected function onMapMoveEnd(event:MapEvent):void{
+				if( fxmap.map.zoom>8){
+					this._layer_admin.visible = false;
+				}else{
+					_layer_admin.visible = true;
+				}
+			} 
+			
+		 	protected function onFeatureClick(event:FeatureEvent):void{
+				if( event.feature.layer == this._layer_admin){
+					//Alert.show(event.feature.data.name);
+					
+					//高亮显示区域
+				}
+			}
+			
+			protected function onFeatureOver(event:FeatureEvent):void{
+				if( event.feature.layer == this._layer_admin){
+					//Alert.show(event.feature.data.name);
+					txtTips.text = event.feature.data.name
+						
+					var fill:SolidFill = new SolidFill(0xff0000, 0.4);
+					var stroke:Stroke = new Stroke(0xE7FF33, 3);
+					
+					var rule:Rule = new Rule();
+					rule.symbolizers.push( new PolygonSymbolizer(fill, stroke) );
+					
+					var style:Style = new Style();
+					style.name = "Draw surface style_1";
+					style.rules.push(rule);
+					event.feature.style = style;
+					event.feature.draw();					
+					//高亮显示区域
+					//显示本区域烟草店列表
+					server.getTobacco_StoreList(event.feature.data.id);
+				}
+				
+				if( event.feature.layer == this._layer_store){
+					//Alert.show(event.feature.data.name);
+					txtTips.text =org.openscales.core.StringUtils.sprintf("%s %s %s %s", event.feature.data.name,event.feature.data.boss,event.feature.data.tel,event.feature.data.address);
+					//高亮显示区域
+				}
+				
+			}
+			
+			protected function onFeatureOut(event:FeatureEvent):void{
+				if( event.feature.layer == this._layer_admin){
+					//Alert.show(event.feature.data.name);
+					//txtTips.text = "";
+					
+					event.feature.style = Style.getDefaultSurfaceStyle();
+					event.feature.draw();
+					
+					//高亮显示区域
+				}
+			}
+		 
+			
+			 
+			
+			private var vgcache:Array =[0,0];
+			protected function pright_clickHandler(event:MouseEvent):void
+			{
+				var w:int = vgright.width;				 
+				
+				vgright.width=vgcache[0];
+				vgcache[0] = w;
+				
+			}
+			
+			
+			protected function pleft_clickHandler(event:MouseEvent):void
+			{
+				var w:int = vgleft.width;				
+				vgleft.width = vgcache[1];
+				vgcache[1] = w;
+				
+				vgleft.visible = vgleft.width?true:false;
+				
+			}
+		 
+			 
+		  
+
+			protected function dgAdmin_itemClickHandler(event:ListEvent):void
+			{
+				
+				server.getTobacco_StoreList(dgAdmin.selectedItem.id);
+				//地图定位
+				var f:Feature;
+				var n:int;
+				var ftrs:Vector.<Feature>;
+				ftrs = _layer_admin.features;
+				
+				for(n=0;n<ftrs.length;n++){
+					f = ftrs[n];
+					f.style = Style.getDefaultSurfaceStyle();
+					f.draw();
+				}
+			
+				
+				for(n=0;n<ftrs.length;n++){
+					f = ftrs[n];
+					if( dgAdmin.selectedItem.id == f.data.id ){
+						fxmap.map.center = f.geometry.bounds.center;
+						//highlight
+						var fill:SolidFill = new SolidFill(0xff0000, 0.4);
+						var stroke:Stroke = new Stroke(0xE7FF33, 3);
+						
+						var rule:Rule = new Rule();
+						rule.symbolizers.push( new PolygonSymbolizer(fill, stroke) );
+						
+						var style:Style = new Style();
+						style.name = "Draw surface style_1";
+						style.rules.push(rule);
+						f.style = style;
+						f.draw();					
+						break;
+					}
+				}
+				
+			}
+
+
+			protected function ddlYear_changeHandler(event:IndexChangeEvent):void
+			{
+				updateAdminSaleList();
+			}
+
+
+			protected function ddlMonth_changeHandler(event:IndexChangeEvent):void
+			{
+				updateAdminSaleList();
+			}
+
+
+			protected function btnAoSearch_clickHandler(event:MouseEvent):void
+			{
+				server.getTobacco_StoreListByCity(0,edtName.text);
+			}
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="MainPlay"/>
+		<s:State name="ReplayWindow"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<fx:XMLList id="treeData">
+			<node label="Mail Box">
+				<node label="Inbox">
+					<node label="Marketing"/>
+					<node label="Product Management"/>
+					<node label="Personal"/>
+				</node>
+				<node label="Outbox">
+					<node label="Professional"/>
+					<node label="Personal"/>
+				</node>
+				<node label="Spam"/>
+				<node label="Sent"/>
+			</node>
+		</fx:XMLList>
+	</fx:Declarations>
+	
+	<s:layout.MainPlay>
+		<s:VerticalLayout gap="1"/>
+	</s:layout.MainPlay>
+	<s:HGroup includeIn="MainPlay" width="100%" height="100%" gap="1">
+		<s:VGroup width="320" height="100%" id="vgleft">
+			<mx:ViewStack id="viewstack1" width="100%" height="100%">
+				
+				<mx:VDividedBox label="" width="100%" height="100%">
+					<s:Panel width="100%" height="100%" title="对象列表" cornerRadius="5" textAlign="left">
+						<s:layout>
+							<s:VerticalLayout horizontalAlign="center" paddingLeft="5" paddingRight="5" paddingBottom="10" gap="2"/>
+						</s:layout>
+						<s:HGroup width="100%" height="25" verticalAlign="middle">
+							<s:Label text="城市：" width="100"/>
+							<s:DropDownList width="155" id="ddlCity" labelField="name" selectedIndex="0">
+								<s:dataProvider>
+									<s:ArrayCollection>
+									<fx:Object name="上海" value="shanghai"/>
+									</s:ArrayCollection>
+								</s:dataProvider>
+							</s:DropDownList>
+						</s:HGroup>
+						<s:HGroup width="100%" height="25" verticalAlign="middle">
+							<s:Label text="销售统计年月:" width="100"/>
+							<s:DropDownList width="70" labelField="name" selectedIndex="0" id="ddlYear" change="ddlYear_changeHandler(event)">
+								<s:dataProvider>
+									<s:ArrayCollection>
+										<fx:Object name="2010" value="2010"/>
+										<fx:Object name="2011" value="2011"/>
+									</s:ArrayCollection>
+								</s:dataProvider>
+							</s:DropDownList>
+							<s:Label text="年"/>
+							
+							<s:DropDownList width="48"  labelField="name" selectedIndex="0" id="ddlMonth" change="ddlMonth_changeHandler(event)">
+								<s:dataProvider>
+									<s:ArrayCollection>
+										
+									
+									<fx:Object name="1" value="1"/>
+									<fx:Object name="2" value="2"/>
+									<fx:Object name="3" value="3"/>
+									<fx:Object name="4" value="4"/>
+									<fx:Object name="5" value="5"/>
+									<fx:Object name="6" value="6"/>
+									<fx:Object name="7" value="7"/>
+									<fx:Object name="8" value="8"/>
+									<fx:Object name="9" value="9"/>
+									<fx:Object name="10" value="10"/>
+									<fx:Object name="11" value="11"/>
+									<fx:Object name="12" value="12"/>						
+									</s:ArrayCollection>
+								</s:dataProvider>
+							</s:DropDownList>
+							
+							
+								<s:Label text="月"/>
+						</s:HGroup>
+						<s:HGroup width="100%" height="20" verticalAlign="middle">
+							<s:Label text="行政区列表:"/>
+						</s:HGroup>
+						<mx:DataGrid height="100%" width="100%" id="dgAdmin" itemClick="dgAdmin_itemClickHandler(event)" horizontalScrollPolicy="auto">
+							<mx:columns>
+								<mx:DataGridColumn headerText="行政区名" dataField="name"/>
+								<mx:DataGridColumn headerText="中华" dataField="t_zh"/>
+								<mx:DataGridColumn headerText="云烟" dataField="t_yy"/>
+								<mx:DataGridColumn headerText="三五" dataField="t_sw"/>
+								<mx:DataGridColumn/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:Panel>
+					<s:Panel width="100%" height="252" title="烟草专卖店:" cornerRadius="5">
+						<s:layout>
+							<s:VerticalLayout paddingRight="2" paddingLeft="2"/>
+						</s:layout>
+						<s:HGroup width="100%" height="28" verticalAlign="middle" paddingRight="10">
+							<s:Label text="名称:"/>
+							<s:TextInput width="100%" id="edtName"/>
+							<s:Button label="检索" id="btnAoSearch"  click="btnAoSearch_clickHandler(event)"/>
+						</s:HGroup>
+						<mx:DataGrid width="100%" height="100%" id="dgStorelist" paddingRight="2" horizontalScrollPolicy="auto">
+							<mx:columns>
+								<mx:DataGridColumn headerText="店名" dataField="name"/>
+								<mx:DataGridColumn headerText="负责人" dataField="boss"/>
+								<mx:DataGridColumn headerText="位置" dataField="lonlat"/>
+								<mx:DataGridColumn headerText="联系电话" dataField="tel"/>
+								<mx:DataGridColumn headerText="地址" dataField="address"/>
+								<mx:DataGridColumn/>
+							</mx:columns>
+						</mx:DataGrid>
+					</s:Panel>
+				</mx:VDividedBox>
+				
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="100%" height="100%">
+			<s:HGroup width="100%" height="25" verticalAlign="middle">
+				<mx:LinkButton label="&lt;&lt;" id="pleft" click="pleft_clickHandler(event)"/>
+				<mx:LinkBar dataProvider="{viewstack2}">
+				</mx:LinkBar>
+				<s:Label text="提示:"/>
+				<s:Label width="100%" id="txtTips" color="#F11818" fontSize="23"/>
+				<mx:LinkButton label="&gt;&gt;" id="pright" click="pright_clickHandler(event)"/>
+			</s:HGroup>
+			<mx:ViewStack id="viewstack2" width="100%" height="100%">
+				<s:NavigatorContent label="主视图" width="100%" height="100%">
+					<s:layout>
+						<s:VerticalLayout/>
+					</s:layout>
+					
+					
+					<org:Map id="fxmap" width="100%" height="100%"  
+							 zoom="5" 
+							 center="121.486,30.95" >
+						<org:layout>
+							<s:BasicLayout/>
+						</org:layout>
+						<org:WMSC id="layerchina" x="168" y="209"  layers="china" 		 
+								  resolutions="4.7416367980884103e-06, 8.2978643966547182e-06, 1.1854091995221027e-05,  
+								  1.7781137992831539e-05, 2.3708183990442054e-05, 4.7416367980884108e-05, 0.00011854091995221028, 
+								  0.00023708183990442055, 0.0004741636798088411, 0.00094832735961768221,
+								  0.0016595728793309438, 0.0023708183990442055, 0.0047416367980884109, 0.011854091995221026, 
+								  0.023708183990442052, 0.047416367980884104, 0.094832735961768208"  
+								  width="88">
+							
+						</org:WMSC>
+						
+						
+						
+						
+						<org:MousePosition numdigits="4.4"  id="llpos" x="10" y="{fxmap.height-20}" width="195"   >
+						</org:MousePosition>
+						<org:DragHandler  />
+						<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+						</org:PanZoom>
+						
+						<org:ScaleLine id="scaline" x="{fxmap.width - 200}" y="{fxmap.height-80}" map="{fxmap.map}"></org:ScaleLine>	
+						<org:WheelHandler/>
+						
+						<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+						<!-- 加载时候的沙漏-->
+						
+						
+						<!--<org:FeatureDrawing x="0" y="{height-200}"/>-->
+						<org:FeatureLayer id="aolayers" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+						<org:FeatureLayer id="aolayer" x="100" y="316" width="174" height="93">					
+						</org:FeatureLayer>
+						
+					</org:Map>
+				</s:NavigatorContent>
+				<s:NavigatorContent label="报表日志" width="100%" height="100%">
+				</s:NavigatorContent>
+			</mx:ViewStack>
+		</s:VGroup>
+		<s:VGroup width="111" height="100%" id="vgright">
+			<s:Panel width="250" height="350" title="焦点对象" cornerRadius="5">
+				<s:layout>
+					<s:VerticalLayout gap="1"/>
+				</s:layout>
+			</s:Panel>
+			<s:Panel width="250" height="100%" title="其他">
+				<s:layout>
+					<s:VerticalLayout gap="0"/>
+				</s:layout>
+			</s:Panel>
+		</s:VGroup>
+	</s:HGroup>
+
+</s:Group>

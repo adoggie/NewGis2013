@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="486" height="340" creationComplete="init()"
+		 >
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="createActiveObject" result="createActiveObject_result(event)" fault="onfault(event)"/>
+			<s:method name="updateActiveObject" result="updateActiveObject_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteActiveObject" result="deleteActiveObject_result(event)" fault="onfault(event)"/>
+			<s:method name="getActiveObjectInfo" result="getActiveObjectInfo_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			
+			private var _d:Object = null;
+			
+			public function newItem():void{
+				_d = null;
+				reset();
+			}
+			
+			public function showItem(d:Object):void{
+				_d = d;
+				reset();
+				server.getActiveObjectInfo(d.id);
+			}
+			
+			public function reset():void{
+				this.edtAddress.text ="";
+				this.edtComment.text = "";
+				this.edtContact.text = "";
+				this.edtName.text = "";
+				this.edtPhone.text = "";
+				this.edtSid.text = "";
+				this.edtZipcode.text = "";
+				this.chkEnable.selected = true;
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function createActiveObject_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result.result;
+				Alert.show("创建成功!");
+			}
+			
+			private function updateActiveObject_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result.result;
+				Alert.show("修改成功!");
+			}
+			
+			private function deleteActiveObject_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				 
+			}
+			
+			private function getActiveObjectInfo_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				_d = cr.result;
+				this.edtAddress.text = _d.address;
+				this.edtComment.text = _d.comment;
+				this.edtContact.text = _d.contact;
+				this.edtName.text = _d.name;
+				this.edtPhone.text = _d.telphone;
+				this.edtSid.text = _d.gps.sid;
+				this.edtZipcode.text = _d.zipcode;
+				
+				var n:int;
+				var ar:ArrayList;
+				ar = cbDas.dataProvider as ArrayList;
+				for(n=0;n<ar.length;n++){
+					if( ar.getItemAt(n).value == _d.dasid){
+						this.cbDas.selectedIndex = n;
+						break;
+					}
+				}
+				ar = cbDevType.dataProvider as ArrayList;
+				for(n=0;n<ar.length;n++){
+					if( ar.getItemAt(n).value == _d.devtype){
+						cbDevType.selectedIndex = n;
+						break;
+					}
+				}
+				ar = cbKind.dataProvider as ArrayList;
+				for(n=0;n<ar.length;n++){
+					if( parseInt( ar.getItemAt(n).value) == _d.type){
+						cbKind.selectedIndex = n;
+						break;
+					}
+				}
+				this.chkEnable.selected = _d.enable;
+				this.dtActive.selectedDate = _d.active_time;
+				this.dtExpire.selectedDate = _d.expire_time;
+				
+			}
+			
+
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				
+				var d:Object = new Object();
+				
+				d.address = edtAddress.text;
+				d.comment = edtComment.text;
+				d.contact = edtContact.text;
+				d.name = edtName.text;
+				d.telphone = edtPhone.text;
+				d.sid = edtSid.text;
+				d.zipcode = edtZipcode.text;
+				
+				d.dasid = cbDas.selectedItem.value;
+				d.devtype = cbDevType.selectedItem.value;
+				d.type = parseInt( cbKind.selectedItem.value);
+				d.enable = chkEnable.selected;
+				d.active_time = this.dtActive.selectedDate;
+				d.expire_time = this.dtExpire.selectedDate;
+				
+				if(_d == null){
+					server.createActiveObject(d);
+					return;
+				}
+				d.id = _d.id;
+				d.mid = _d.mid;
+				server.updateActiveObject(d);
+			}
+
+		]]>
+	</fx:Script>
+	
+	
+	<s:Panel width="100%" height="100%" title="设备信息">
+		<s:layout>
+			<s:VerticalLayout gap="2"/>
+		</s:layout>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="名称" width="60" textAlign="right"/>
+			<s:TextInput width="140" id="edtName"/>
+			<s:Label text="接入服务器" width="60" textAlign="right"/>
+			<s:ComboBox width="140" labelField="name" selectedIndex="0" id="cbDas">
+				<s:dataProvider>
+					<s:ArrayList>
+						<fx:Object name="das001" value="das001"/>
+						<fx:Object name="das002" value="das002"/>
+						<fx:Object name="das003" value="das003"/>
+					</s:ArrayList>
+					
+				</s:dataProvider>
+			</s:ComboBox>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="设备编码" width="60" textAlign="right"/>
+			<s:DropDownList width="140" labelField="name" selectedIndex="0" id="cbDevType">
+				<s:dataProvider>
+					<s:ArrayList>
+						<fx:Object name="ks108" value="ks108"/>
+						<fx:Object name="ks102" value="ks102"/>						
+					</s:ArrayList>
+				</s:dataProvider>
+			</s:DropDownList>
+			<s:Label text="设备种类" width="60" textAlign="right"/>
+			<s:DropDownList width="140" labelField="name" selectedIndex="0" id="cbKind">
+				<s:dataProvider>
+					<s:ArrayList>
+						<fx:Object name="小车" value="1"/>
+						<fx:Object name="货车" value="2"/>
+						<fx:Object name="公交" value="3"/>
+						<fx:Object name="工程车" value="4"/>
+						<fx:Object name="助动车" value="5"/>
+						<fx:Object name="人物" value="17"/>
+						<fx:Object name="宠物狗" value="18"/>
+					
+					</s:ArrayList>
+				</s:dataProvider>
+			</s:DropDownList>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="邮政编码" width="60" textAlign="right"/>
+			<s:TextInput width="140" id="edtZipcode"/>
+			<s:Label text="联系人" width="60" textAlign="right"/>
+			<s:TextInput width="140" id="edtContact"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="联系电话" width="60" textAlign="right"/>
+			<s:TextInput width="140" id="edtPhone"/>
+			<s:Label text="硬件编码" width="60"/>
+			<s:TextInput width="140" id="edtSid"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="地址" width="60" textAlign="right"/>
+			<s:TextInput width="351" id="edtAddress"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="25" verticalAlign="middle">
+			<s:Label text="开通时间" width="60" textAlign="right"/>
+			<mx:DateField width="140" id="dtActive" formatString="YYYY-MM-DD"/>
+			<s:Label text="到期时间" width="60" textAlign="right"/>
+			<mx:DateField width="140" id="dtExpire"  formatString="YYYY-MM-DD"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="52" verticalAlign="middle">
+			<s:Label text="备注说明" width="60" textAlign="right"/>
+			<s:TextArea height="100%" width="352" id="edtComment"/>
+		</s:HGroup>
+		<s:CheckBox label="启用" textAlign="left" id="chkEnable"/>
+		<s:HGroup width="100%" height="29" verticalAlign="middle" textAlign="center">
+			<s:Button label="保存" id="btnSave" click="btnSave_clickHandler(event)"/>
+			<mx:Spacer width="50%"/>
+			<s:Button label="复位"/>
+			<s:Button label="清除里程"/>
+		</s:HGroup>
+	</s:Panel>
+</s:Group>

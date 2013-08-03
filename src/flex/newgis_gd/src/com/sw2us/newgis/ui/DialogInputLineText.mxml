@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="360" height="140" creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="contentJustify"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			
+			private  var _resultcall:Function = null;
+			
+			
+			
+			public static function show(parent:DisplayObject,text:String="",prompt:String="",title:String="",result:Function = null):DialogInputLineText{
+				var form:DialogInputLineText = DialogInputLineText(PopUpManager.createPopUp(parent,DialogInputLineText,true))	;			
+				form.content.title = title;
+				form.text.text = text;
+				form.prompt.text = prompt;
+				form._resultcall = result;
+				PopUpManager.centerPopUp(form);
+				
+				
+				return form;
+			}
+			
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{				
+				PopUpManager.removePopUp(this);
+			}
+
+			private function init():void{
+				IME.enabled = true;
+				this.focusEnabled = true;  //必须添加，否则无法输入中文 
+			}
+			
+			protected function btnOk_clickHandler(event:MouseEvent):void
+			{
+				if( _resultcall !=null){
+					_resultcall( text.text);
+				}
+				PopUpManager.removePopUp(this);
+			}
+
+		]]>
+	</fx:Script>
+	<s:Panel width="240" height="140" title="Title" id="content">
+		<s:layout>
+			<s:VerticalLayout gap="2" paddingLeft="4" paddingRight="4"/>
+		</s:layout>
+		<s:HGroup width="100%" height="30" verticalAlign="middle">
+			<s:Label text="Message" width="345" height="19" y="6" id="prompt"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="30" verticalAlign="middle" textAlign="left">
+			<s:TextInput width="100%" id="text"/>
+		</s:HGroup>
+		<s:HGroup width="100%" height="38" verticalAlign="middle">
+			<mx:Spacer height="16" width="50%"/>
+			<s:Button label="确定" id="btnOk" click="btnOk_clickHandler(event)"/>
+			<s:Button label="取消" id="btnCancel" click="btnCancel_clickHandler(event)"/>
+			<mx:Spacer height="16" width="50%"/>
+		</s:HGroup>
+	</s:Panel>
+</s:Group>

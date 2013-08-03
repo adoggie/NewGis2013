@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" minWidth="955" minHeight="600" creationComplete="init()" xmlns:ui="com.sw2us.newgis.ui.*">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			private var mXML:XML = 
+				<menu label = "系统菜单"> 
+					<item label="文件"> 
+						<node label="新建画板" data="new"/> 
+						<node label="清除画板" data="clear" enabled="false"/> 
+						<node type="separator" /> 
+						
+						<node label="退出系统" data="logout"/> 
+					</item> 
+					<item label="帮助"> 
+						<node label="帮助" data="help"/> 
+						<node label="关于作者" data="about"/> 
+					 </item> 
+				</menu>; 
+			
+			public function init():void{
+				var d:Object;
+				d=new Object();
+				d.name='scott';
+				d['age']=101;
+				var x:Object ={name:'ccc'};
+				
+			}
+			
+
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				var now:Date = dt.getValue();
+				trace(now.toDateString());
+			}
+
+		]]>
+		
+		
+	</fx:Script>
+	<mx:MenuBar x="119" y="224" labelField="@label" showRoot="false" dataProvider="{mXML}">
+	
+		
+	
+	
+	</mx:MenuBar>
+	<ui:DateTimeChooser x="77" y="111" id="dt"/>
+	<s:Button x="103" y="297" label="Button" click="button1_clickHandler(event)"/>
+</s:Application>

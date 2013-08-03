@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="300" height="120" 
+		 creationComplete="init()" title="新围栏"  xmlns:ns1="*" close="deinit()">
+	<s:layout>
+		<s:VerticalLayout paddingLeft="2" paddingRight="2" gap="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+		
+			<s:method name="getBarrier" result="result_getBarrier(event)" fault="onfault(event)"/>
+			<s:method name="createBarrier" result="result_createBarrier(event)" fault="onfault(event)"/>
+			<s:method name="updateBarrier" result="result_updateBarrier(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+		
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.StringUtil;
+			import com.sw2us.newgis.AppCore;
+			import com.sw2us.newgis.map.MapBarrier;
+			
+			import gisadmin.gisadmin;
+			
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.geometry.basetypes.Bounds;
+			import org.openscales.geometry.basetypes.Location;
+			import org.openscales.geometry.basetypes.Pixel;
+			
+			private var _userinfo:Object;		//用户信息
+			private var _alarmparams:Object; 	//报警参数设置
+			private var _sysparams:Object; 		//系统参数
+			
+			private var _doafter:Function = null;
+			private var _layer:FeatureLayer;
+			
+			private var _barrier:MapBarrier = null; //围栏对象
+			private var _first:Location = null;
+			private var _rect:Bounds = null;
+			//private var _bid:int = 0;
+			private var _d:Object = null;
+			private var _doback:Function = null;
+			
+			public   function show(d:Object,layer:FeatureLayer,cb:Function = null):void{
+				var s:CSSStyleDeclaration;
+				//_doafter = cb;
+				
+				_layer = layer;
+				_layer.map.addEventListener(MouseEvent.MOUSE_DOWN,onMapMouseDown);
+				_layer.map.addEventListener(MouseEvent.MOUSE_UP,onMapMouseUp);
+				
+				
+				 
+				if(d!=null){
+					server.getBarrier(d.id);
+				}
+				
+				PaneGisRealView.mainwindow.mapdrag.active = false;
+				_doback = cb;
+			}
+			
+			private function clear():void{
+				if(_barrier!=null){					
+					_layer.removeFeature(_barrier);
+					_barrier.destroy();
+				}
+				this.txtDesc.text = "";
+				_rect = null;
+			}
+			
+			private function onMapMouseDown(event:MouseEvent):void{
+				clear();
+				
+				_barrier = new MapBarrier(_layer);
+				var loc:Location;
+				_first = _layer.map.getLocationFromMapPx( new Pixel(_layer.map.mouseX,_layer.map.mouseY));
+				
+				
+				_layer.map.addEventListener(MouseEvent.MOUSE_MOVE,onMapMouseOver);
+				_layer.map.addEventListener(MouseEvent.MOUSE_OUT,onMapMouseOut);
+			}
+			
+			private function onMapMouseUp(event:MouseEvent):void{
+				_layer.map.removeEventListener(MouseEvent.MOUSE_MOVE,onMapMouseOver);
+				_layer.map.removeEventListener(MouseEvent.MOUSE_OUT,onMapMouseOut);
+				if(_barrier==null){
+					return;
+				}
+			}
+			
+			private function onMapMouseOver(event:MouseEvent):void{
+				
+				if(_barrier==null){
+					return;
+				}
+				var loc:Location;
+				loc = _layer.map.getLocationFromMapPx( new Pixel(_layer.map.mouseX,_layer.map.mouseY));
+				var l:Number,b:Number,r:Number,t:Number;
+				//normalize rect
+				l = _first.lon > loc.lon?loc.lon:_first.lon;
+				b = _first.lat > loc.lat?loc.lat:_first.lat;
+				r = _first.lon > loc.lon?_first.lon:loc.lon;
+				t = _first.lat > loc.lat?_first.lat:loc.lat;
+				
+				_rect = new Bounds(l,b,r,t);
+				_barrier.setRect(_rect);
+				
+				this.txtDesc.text =  StringUtils.sprintf("%.4f,%.4f - %.4f,%.4f",l,b,r,t);
+			//	trace(txtDesc.text);
+				
+			}
+			private function onMapMouseOut(event:MouseEvent):void{
+				//clear();
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();	
+				IME.enabled = true;
+				this.focusEnabled = true;
+				
+				
+				
+			}
+			
+			private function deinit():void{
+				_layer.map.removeEventListener(MouseEvent.MOUSE_DOWN,onMapMouseDown);
+				_layer.map.removeEventListener(MouseEvent.MOUSE_UP,onMapMouseUp);
+				PopUpManager.removePopUp(this);
+				PaneGisRealView.mainwindow.mapdrag.active = true;
+				clear();
+				if(_doback!=null){
+					_doback();
+				}
+			}
+			
+		 
+			private function result_getBarrier(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"警告");
+					return;
+				}
+				clear();
+				_d = cr.result;				
+				this.edtName.text = _d.name;								
+				_rect = new Bounds(_d[0],_d[1],_d[0]+_d[2],_d[1]+_d[3]);
+				_barrier = new MapBarrier(_layer);
+				_barrier.setRect(_rect);
+				
+				this.txtDesc.text =  StringUtils.sprintf("%.4f,%.4f - %.4f,%4.f",_rect.left,_rect.bottom,_rect.right,_rect.top);
+				
+			}
+			
+		 
+			 
+			private function result_createBarrier(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"警告");
+					return;
+				}		
+				this.deinit();
+			}
+			
+			private function result_updateBarrier(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}		
+				
+				this.deinit();
+			}
+		 
+			
+			
+
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+
+
+			protected function btnOk_clickHandler(event:MouseEvent):void
+			{
+				
+			}
+
+
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				if(edtName.text.length == 0){
+					Alert.show("围栏名称不能为空!","提示");
+					return ;
+				}
+				if(_rect == null){
+					Alert.show("必须在地图上框选围栏区域","提示");
+					return ;
+				}
+				
+				var d:Object = new Object();
+				d.name = edtName.text;
+				//d.wkt = StringUtils.sprintf("%.4f,%.4f,%.4f,%.4f",_rect.left,_rect.bottom,_rect.width,_rect.height);
+				d.wkt = [_rect.left,_rect.bottom,_rect.width,_rect.height];
+				if( _d == null){
+					server.createBarrier(d);
+					return ;
+				}
+				d.id = _d.id;
+				server.updateBarrier(d);
+			}
+
+		]]>
+	</fx:Script>
+	<s:HGroup width="100%" height="28" verticalAlign="middle">
+		<s:Label text="名称"/>
+		<s:TextInput width="100%" id="edtName"/>
+		<s:Button label="保存" width="60" id="btnSave" click="btnSave_clickHandler(event)"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="24" verticalAlign="middle">
+		<s:Label text="位置:"/>
+		<s:Label width="100%" id="txtDesc"/>
+	</s:HGroup>
+	<s:Label text="请移动鼠标在地图上拖动矩形框;【当前地图不可拖动】"/>
+</s:TitleWindow>

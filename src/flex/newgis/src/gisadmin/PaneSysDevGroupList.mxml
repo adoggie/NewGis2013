@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="600" height="300"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="1"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="updateAoSysGroup" result="updateAoSysGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="createAoSysGroup" result="createAoSysGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteAoSysGroup" result="deleteAoSysGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="addAoIntoSysGroup" result="addAoIntoSysGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="removeAoFromSysGroup" result="removeAoFromSysGroup_result(event)" fault="onfault(event)"/>
+			<s:method name="getAoSysGroupList" result="getAoSysGroupList_result(event)" fault="onfault(event)"/>
+			<s:method name="getAoListOfSysGroup" result="getAoListOfSysGroup_result(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+		
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function updateAoSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function createAoSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				Alert.show("创建成功!");
+				this.onSearchGroup();
+				//dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function deleteAoSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				gisadmin.gisadmin.mainwindow.onDeleteSysDevGroup(); 
+				Alert.show("删除成功!");
+				this.onSearchGroup();
+			}
+			
+			private function addAoIntoSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				//this.onSearchDevice();
+				this.dgGroups_itemClickHandler(null);
+				Alert.show("添加设备成功!");
+			}
+			
+			private function removeAoFromSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				this.onSearchDevice();  
+				Alert.show("成功删除设备!");
+				gisadmin.gisadmin.mainwindow.onDeleteDevice();
+			}
+			
+			private function getAoSysGroupList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				
+				dgGroups.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function getAoListOfSysGroup_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dgDevices.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function onalert_del(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.removeAoFromSysGroup( dgGroups.selectedItem.id, dgDevices.selectedItem.id);
+				}
+			}
+			
+			//从系统组中删除
+			protected function btnDelDevice_clickHandler(event:MouseEvent):void
+			{
+				if(this.dgDevices.selectedItem == null){
+					return;
+				}
+				if( this.dgGroups.selectedItem == null){
+					return;
+				}
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_del);
+			}
+			
+			//加入系统组
+			private function onSelectDeviceForAdd(d:Object):void{
+				if( this.dgGroups.selectedItem == null){
+					return;
+				}
+				server.addAoIntoSysGroup(dgGroups.selectedItem.id,d.id);
+			}
+			
+			protected function btnAddDevice_clickHandler(event:MouseEvent):void
+			{
+				if( this.dgGroups.selectedItem == null){
+					return;
+				}
+				uiPaneDeviceQuery.select(gisadmin.gisadmin.mainwindow,onSelectDeviceForAdd);
+			}
+
+
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				onSearchGroup();
+			}
+
+			
+			private function cb_onAddedSysGroup(d:Object=null):void{
+				// d- sysgroup object
+			}
+			
+			protected function btnNewGroup_clickHandler(event:MouseEvent):void
+			{
+				gisadmin.gisadmin.mainwindow.onAddSysDevGroup(cb_onAddedSysGroup);
+			}
+
+			private function onalert_delgroup(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteAoSysGroup( dgGroups.selectedItem.id);
+				}
+			}
+			
+			protected function btnDelGroup_clickHandler(event:MouseEvent):void
+			{
+				if( this.dgGroups.selectedItem == null){
+					return;
+				}
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_delgroup);
+			}
+
+			private function onSearchGroup():void{
+				
+				server.getAoSysGroupList(this.edtFilter.text);
+				
+			}
+			
+			 
+			private function onSearchDevice():void{
+				if( dgGroups.selectedItem == null){
+					return;
+				}
+				server.getAoListOfSysGroup(dgGroups.selectedItem.id,this.edtDeviceFilter.text);
+			}
+			
+			protected function btnSearchDevice_clickHandler(event:MouseEvent):void
+			{
+				onSearchDevice();
+			}
+
+
+			protected function dgGroups_itemClickHandler(event:ListEvent):void
+			{
+				onSearchDevice();
+			}
+
+
+			protected function dgDevices_itemClickHandler(event:ListEvent):void
+			{
+				if(this.dgDevices.selectedItem == null){
+					return;
+				}
+				gisadmin.gisadmin.mainwindow.onShowDevice(dgDevices.selectedItem);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="24" verticalAlign="middle" paddingLeft="2">
+		<s:Button label="新组" id="btnNewGroup" click="btnNewGroup_clickHandler(event)"/>
+		<s:Button label="删除组" id="btnDelGroup" click="btnDelGroup_clickHandler(event)"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="100%">
+		<mx:ViewStack id="viewstack1" width="100%" height="100%">
+			
+			<mx:HDividedBox label="" width="100%" height="100%">
+			
+				<s:VGroup width="220" height="100%" gap="2" paddingLeft="2" paddingBottom="2">
+					<s:HGroup width="100%" height="24" verticalAlign="middle" paddingLeft="2">
+						<s:TextInput id="edtFilter"/>
+						<s:Button label="检索" width="48" id="btnSearchGroup" click="btnSearch_clickHandler(event)"/>
+					</s:HGroup>
+					<mx:DataGrid width="100%" height="100%" horizontalScrollPolicy="auto" id="dgGroups"
+								 focusColor="#F5EAEA" itemClick="dgGroups_itemClickHandler(event)" horizontalGridLines="true">
+						<mx:columns>
+							<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+							<mx:DataGridColumn dataField="name" headerText="名称" />
+							<mx:DataGridColumn/>
+						</mx:columns>
+					</mx:DataGrid>
+				</s:VGroup>
+				<s:VGroup width="100%" height="100%" gap="2">
+					<s:HGroup width="100%" height="24" verticalAlign="middle">
+						<s:Button label="添加" id="btnAddDevice" click="btnAddDevice_clickHandler(event)"/>
+						<s:Button label="删除" id="btnDelDevice" click="btnDelDevice_clickHandler(event)"/>
+						<s:Label text="名称"/>
+						<s:TextInput id="edtDeviceFilter"/>
+						<s:Button label="检索" id="btnSearchDevice" click="btnSearchDevice_clickHandler(event)"/>
+					</s:HGroup>
+					<mx:DataGrid width="100%" height="100%" horizontalScrollPolicy="auto" id="dgDevices"
+								 focusColor="#F5EAEA"  itemClick="dgDevices_itemClickHandler(event)" horizontalGridLines="true">
+						<mx:columns>
+							<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+							<mx:DataGridColumn headerText="名称" dataField="name"/>
+							<mx:DataGridColumn headerText="设备类型" dataField="devtype"/>
+							<mx:DataGridColumn headerText="接入服务器" dataField="dasid"/>
+							<mx:DataGridColumn headerText="是否启用" dataField="enable_s"/>
+							<mx:DataGridColumn headerText="当前状态"/>
+							<mx:DataGridColumn headerText="类型编码" dataField="type_s"/>
+							<mx:DataGridColumn headerText="电话" dataField="telphone"/>
+							<mx:DataGridColumn headerText="邮编" dataField="zipcode"/>
+							<mx:DataGridColumn headerText="地址" dataField="address"/>
+							<mx:DataGridColumn headerText="联系人" dataField="contact"/>
+							<mx:DataGridColumn headerText="开通时间" dataField="active_time_s"/>
+							<mx:DataGridColumn headerText="到期时间" dataField="expire_time_s"/>
+							<mx:DataGridColumn/>
+						</mx:columns>
+					</mx:DataGrid>
+				</s:VGroup>
+			</mx:HDividedBox>
+		</mx:ViewStack>
+	</s:HGroup>
+</s:Group>
+<!--175437257 13641931844-->

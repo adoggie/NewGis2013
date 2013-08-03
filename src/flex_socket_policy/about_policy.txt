@@ -1,0 +1,108 @@
+Additional Requirements
+
+Note: The code is not considered to be production quality and has not been tested for secure environments. This code is intended only to convey the basic concepts of a socket policy file server. Adobe does not plan to officially support this code.
+
+With the introduction of Adobe Flash Player 9,0,124,0, Flash Player will not make a socket connection directly to a server without first obtaining explicit permission from that server. This will require some systems and networks to open up ports or run new services in order to support granting permission.
+
+Because this behavior will be new to system and network administrators, this article provides a brief background on why this process is necessary and what they will see on their networks. In addition, this article includes an overview of sample code that Adobe is providing for creating socket policy file servers in testing environments.
+Flash Player sockets and socket policy files
+
+The primary audience for this article is a system or network administrator whose web team has approached them to open up firewall ports or to run new system services. This may seem contradictory to many security principles in which less is considered more. This section presents a brief background on socket policy files and what actually traverses the network. It also sets the framework for what the socket policy file server needs to be able to provide to the Flash Player runtime.
+Why are socket policy files necessary?
+
+Flash Player content is distributed throughout the web and is hosted by direct content providers and advertisers. It is widely used because it contains many features, providing a richer experience than raw HTML. One of these features is the ability to create TCP sockets in order to exchange data with servers. From a network administrator's point of view, the idea that content from the Internet could make socket connections to internal hosts is scary. This is why Flash Player requires permission from the target host before it will allow content to make the network connection.
+Recent changes in socket policy files
+
+Flash Player has required the presence of socket policy files since the introduction of the feature within Flash Player. Flash Player 9,0,124,0 introduces two major changes to socket policy files. The first change is that Flash Player will require socket policy files for all sockets. In prior versions of Flash Player, it was possible to connect to ports greater than 1024 if the SWF file was connecting to the same server from which it was hosted. The second change is the introduction of a centralized location for socket policy files that can host a socket master policy file.
+
+Adobe has filed with IANA, the Internet Assigned Numbers Authority, to reserve port 843 for the purposes of serving socket policy files. By introducing a centralized location for socket policy files, Flash Player enables a system administrator to define what ports are available through one master policy that overrides any other policy file on the host. If Flash Player 9,0,124,0 cannot retrieve a master policy file from port 843, then it requests a socket policy file on the port where it is trying to connect. However, if a policy file is available from a service on TCP port 843, then Flash Player considers that to be the authoritative set of permissions for that system.
+What can an administrator control through a socket policy file?
+
+Socket policy files define what hosts can connect to a system and to which ports those hosts are permitted to connect. If it is a socket master policy file, then the policy file also defines whether other socket policy files are allowed on the host. The schema for socket policy files is defined at adobe.com/xml/schemas/PolicyFileSocket.xsd. Below is a sample socket master policy file:
+<?xml version="1.0"?> <!DOCTYPE cross-domain-policy SYSTEM "/xml/dtds/cross-domain-policy.dtd"> <!-- Policy file for xmlsocket://socks.example.com --> <cross-domain-policy> <!-- This is a master-policy file --> <site-control permitted-cross-domain-policies="master-only"/> <!-- Instead of setting to-ports="*", administrators can use ranges and commas --> <!-- This will allow access to ports 123, 456, 457, and 458 --> <allow-access-from domain="swf.example.com" to-ports="123,456-458" /> </cross-domain-policy>
+
+Inside the cross-domain-policy node is a site-control element. The site-control element defines which socket policy files are allowed on the server. In this case, the value of "master-only" says that this is the only policy file on the server that Flash Player should acknowledge. If socket policy files are allowed to be defined on other ports, then the administrator could say "all". Conversely, if the administrator wanted to deny socket connections to the system altogether, then the value of "none" could be specified as well. Flash Player defaults to a setting of "all" if it is unable to retrieve a socket master policy or the socket master policy does not contain a site-control element.
+
+The next line of XML is the allow-access-from element. The first field of the element defines the domain that is allowed to connect. The domain specified here should be the domain where the SWF content is hosted. This may be different from where the HTML page is hosted that refers to the SWF content. For instance, if an HTML page hosted on www.example.com includes a reference to a SWF hosted on swf.example.com, then the administrator needs to specify swf.example.com in the domain field. While it is possible to specify wildcards in the domain field, such as "*" or "*.example.com", Adobe recommends that only specific domain names be specified.
+
+The to-ports field in the allow-access-from element specifies what ports are available to the Flash content hosted on swf.example.com. Wildcards ("*"), port ranges, and/or individual ports can be specified within this field. Adobe recommends that administrators specify only those ports for which they explicitly want to allow access to that domain.
+Socket policy request process
+
+Flash Player checks for a socket policy file in three places for each IP connection. The checks occur in the following order:
+
+    Flash Player first checks port 843 to determine if there is a socket master policy file. If there is no socket master policy file or the socket master policy file has a site-control tag specifying "all", then Flash Player proceeds to the next step. If the site-control tag has a value of "none", then the process stops and the socket is denied a connection.
+    If an ActionScript Security.loadPolicyFile() command exists within the SWF file, then the Flash Player runtime checks that location. Flash Player checks the destination of the loadPolicyFile() only after it has checked the master policy file on port 843 for permission to acknowledge other policy files. If the developer has not specified a loadPolicyFile() command, then Flash Player checks the destination port of the connection.
+    The destination port of the connection is the last check made by Flash Player. This check is only performed if the socket master policy file permits Flash Player to check additional locations. If Flash Player still cannot locate a policy file granting permission, then the socket connection is denied.
+
+What data is sent in the request and response?
+
+The request for a policy file is very simple: Flash Player sends the string <policy-file-request/> followed by a NULL byte to the port where it is requesting a policy file; no more, no less. Flash developers cannot modify the string that is sent. In return, Flash Player expects to receive the socket policy file as text. Once Flash Player receives the socket policy file, it closes the connection and opens a new connection if the policy file approves the request.
+How often will Flash Player make a connection?
+
+Once Flash Player receives permission, it will remember the result for the lifetime of the SWF file. Flash Player associates each socket policy file to an IP address, and it needs a policy file for each connection to a new IP address. For instance, assume that the developer specifies a hostname for the connection and that a DNS lookup returns multiple IP addresses. Every time the IP address changes for the hostname, Flash Player will check the new IP address for a socket policy file. This helps to protect against DNS rebinding attacks.
+
+Flash Player also checks policy files every time the developer specifies a Security.loadPolicyFile() command within the code. Flash Player does not check for socket policy files for normal HTTP or HTTPS connections through the browser. Socket policy files apply only when the developer initiates a raw Socket or XMLSocket connection in ActionScript.
+Sample socket policy file servers
+
+Adobe is providing sample socket policy file servers for use in developer testing. The code is not considered to be production quality and has not been tested for secure environments. This code is intended only to convey the basic concepts of a socket policy file server; Adobe does not plan to officially support this code. Manual configuration changes or additions will likely be necessary in order for the scripts to run as a service on a particular operating system.
+Overview of the samples
+
+Adobe is providing sample code in both Perl and Python. A socket policy file server can be written in any language that support sockets. These two languages were chosen only for their readability and cross-platform support¡ªand because they could convey the concepts in just a few lines of code. The samples include both Python and Perl versions of a standalone script, a Python and Perl server for the xinetd service, and a Python version of a server for the init service. It is not necessary to install all of the files. The different versions are provided merely to offer options for different environments. Some manual steps¡ªsuch as adding an entry for the "flashpolicy" service on TCP port 843 within the /etc/services file, allowing port 843 within the firewall configuration, or adding permissions to the SELinux configuration¡ªmay also need to be performed to make the servers fully operational depending on your environment. Python version 2.5 is required for the Python scripts.
+Standalone scripts
+
+The Standalone folder contains both Perl and a Python standalone socket policy file server scripts. These scripts just run in a loop until the user hits Ctrl+C or closes the window to stop the process. These scripts should be capable of being run within Cygwin on Windows, or natively on Windows using the ActiveState distributions of Perl and Python. Both the flashpolicyd.pl script and flashpolicyd.py script take two arguments. The first argument is the path to the socket policy file in the filesystem. The second optional argument is the TCP port on which the server should listen. If a port is not provided, then the script listens on TCP port 843. This is a sample command line for starting the script:
+./flashpolicyd.pl --file=../policyfile.xml --port=843 ./flashpolicyd.py --file=../policyfile.xml --port=843
+
+The Perl script will log basic debug information to STDOUT so that the developer can see when a request was received, whether the request was considered valid, and whether a policy file was sent in return; the script will log errors to STDERR. The Python script tracks similar information but it only outputs to STDERR.
+The xinetd services
+
+Both Perl and Python scripts are provided for running a socket policy server on a Linux machine with xinetd. It is only necessary to install one of the two sets of scripts. The install.sh script requires root privileges on the machine. It will copy the following files:
+
+    Socket policy file (flashpolicy.xml) into /usr/local/etc/
+    Policy server script into /usr/local/sbin as the file in.flashpolicyd
+    Xinetd control file into /etc/xinetd.d/
+
+The install.sh script will then try to start the service. The xinetd service will run as the user "nobody." The Python policy file server will log to syslog, whereas the Perl version will log to STDERR. These scripts will work with another superserver such as inetd or launchconfigd, but configuration and installer files are not included for such systems.
+The Python daemon
+
+To install the Python daemon located in the Python_init folder, it is necessary to have root privileges on the Linux machine. Similar to the xinetd scripts, the install.sh script will copy the Python file for the policy file server (flashpolicyd.py) to /usr/local/sbin as flashpolicyd. An init script will be copied into /etc/rc.d/init.d/ that supports basic "start","stop", and "restart" commands. The install.sh script will copy the flashpolicy.xml file to /usr/local/etc/. Finally, it will try to start the service and configure it to start automatically at boot time. The daemon will run as the user root and log to STDERR.
+Testing
+
+A quick verification of the service can be done by using either Perl or Python in conjunction with the netcat utility:
+python -c 'print "<policy-file-request/>%c" % 0' | nc 127.0.0.1 843 perl -e 'printf "<policy-file-request/>%c",0' | nc 127.0.0.1 843
+
+If the socket policy file is returned by running one of the above commands, then the test was successful.
+
+For Flash developers, testing of this functionality requires Flash Player 9,0,115,0 or later. Flash Player 9,0,115,0 introduced socket master policy support and additional logging capabilities for debugging socket connections. Developers may notice a slight difference in results between using Flash Player 9,0,115,0 and using Flash Player 9,0,124,0 (or later) when the socket connection is made to the same domain that is hosting the SWF and the socket connection is to a port greater than 1024. Flash Player 9,0,115,0 was a transitional release that supports both the deprecated behavior and the new Phase II behavior. Therefore, if a socket master policy file is not present on port 843, then Flash Player 9,0,115,0 will assume it needs to apply the deprecated behavior for same-domain connections to ports greater than 1024. Starting with Flash Player 9,0,124,0, only the newer, stricter Phase II behavior is supported and policy files are required for all socket connections. For details on the differences between the two versions and how to configure logging, please see Policy file changes in Flash Player 9: Socket policy files.
+Folder layout
+
+The following is a breakdown of the files present within the ZIP file:
+(root folder)
+
+    flashpolicy.xml: This is the socket master policy file that is copied into /usr/local/etc/ by the install scripts. This file must be altered to reflect the relevant ports and domains for the server.
+    README.txt: A file that contains information regarding the applications and this project.
+
+Python_xinetd folder
+
+    install.sh: This file copies the files into the necessary directories in order to be registered as a service. Administrators should verify that the install directories used by the script are compatible with their system.
+    in.flashpolicyd.py: This script is copied into the /usr/local/sbin directory by the install script for use with xinetd. It is a policy file service coded in Python and logs to syslog.
+    flashpolicyd.xinet: This xinetd control file registers the in.flashpolicyd.py daemon with xinetd to run on port 843 as the user "nobody." It is copied into the /etc/xinetd.d directory as /etc/xinetd.d/flashpolicyd by the install script.
+
+Perl_xinetd folder
+
+    install.sh: This file copies the files into the necessary directories in order to be registered as a service. Administrators should verify that the install directories used by the script are compatible with their system.
+    in.flashpolicyd.pl: This script is copied into the /usr/local/sbin directory by the install script for use with xinetd. It is a policy file service coded in Perl that logs to STDOUT and STDERR.
+    flashpolicyd.xinet: This xinetd control file registers the in.flashpolicyd.py daemon with xinetd to run on port 843 as the user "nobody." It is copied into the /etc/xinetd.d directory as /etc/xinetd.d/flashpolicyd by the install script.
+
+Python_init folder
+
+    install.sh: This file copies the files into the necessary directories to be registered as a service. Administrators should verify that the install directories used by the script are compatible with their system.
+    flashpolicyd.py: This script is copied into the /usr/local/sbin directory by the install script. It is an init-compatible version of the Flash policy server that logs to STDERR. This version supports more than one user connection.
+    flashpolicyd.init: This init script supports the basic init commands of start, stop, and restart. It is copied into the /etc/rc.d/init.d directory as /etc/rc.d/init.d/flashpolicyd by the install script. If this method is used, then the service will be run as root. The configuration variables set in the beginning of this script should be reviewed to ensure that the appropriate path variables are used.
+
+Standalone folder
+
+    flashpolicyd.pl: This is a standalone, single-threaded Perl script that runs in a loop accepting one user connection at a time until the user hits Ctrl+C.
+    flashpolicyd.py: This standalone Python Script will run in a loop until the user hits Ctrl+C. This version supports more than one user connection.
+
+By registering the service with xinetd, an administrator can take advantage of several security controls. Xinetd can be configured to include access controls and denial-of-service (DoS) protections. The Adobe scripts do not configure the security settings in xinetd because these settings are specific to each environment. However, Adobe does encourage taking advantage of these features where appropriate.

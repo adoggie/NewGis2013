@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" height="300" xmlns:org="http://openscales.org"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import org.openscales.geometry.basetypes.Bounds;
+			
+			private var _pointloader:MapFeatureLoader;
+			private var _userfeaturelayer:UserFeatureLayer = null; 
+			
+			private function init():void{
+				this.bglayer.url =AppCore.instance().getMapServerUrl();
+				this.bglayer.layer.redraw();
+				_pointloader = new MapFeatureLoader(this);
+				_userfeaturelayer = new UserFeatureLayer(userlayer); 
+			}
+			
+			/**
+			 * onFeatureLoad
+			 * 地图用户feature加载
+			 */			
+			public function onFeaturesLoad(featuretype:uint,features:Array):void{
+				_userfeaturelayer.onFeaturesLoad(features);
+			}
+			
+			public function onFeaturesDestroy(b:Bounds):void{
+				_userfeaturelayer.onFeaturesDestroy(b);
+			}
+			
+			public function get userfeaturelayer():UserFeatureLayer{
+				return _uesrfeaturelayer;
+			}
+		]]>
+	</fx:Script>
+	<org:Map id="fxmap" width="100%" height="100%"  
+			 zoom="11" 
+			 center="121.3614,31.319" >
+		<org:layout>
+			<s:BasicLayout/>
+		</org:layout>
+		<org:WMSC id="bglayer" x="168" y="209"  layers="china" 		 
+				  resolutions="  0.000005, 0.000008, 0.000012, 0.000018, 0.000024, 0.000047, 0.000119, 0.000237,
+				  0.000474, 0.000948, 0.001660, 0.002371, 0.004742, 0.011854, 0.023708, 0.047416,
+				  0.094833"  
+				  width="88">
+			
+		</org:WMSC>
+		
+		
+		
+		
+		<org:MousePosition numdigits="4.4"  id="llpos" x="10" y="{fxmap.height-20}" width="195"   >
+		</org:MousePosition>
+		
+		<!-- <org:DragHandler  /> -->
+		<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+		</org:PanZoom>
+		
+		<org:ScaleLine id="scaline" x="{fxmap.width - 200}" y="{fxmap.height-80}" map="{fxmap.map}"></org:ScaleLine>	
+		<org:WheelHandler/>
+		
+		<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+		<!-- 加载时候的沙漏-->
+		
+		
+		<!--<org:FeatureDrawing x="0" y="{height-200}"/>-->
+		<org:FeatureLayer id="aolayers" x="100" y="316" width="174" height="93">					
+		</org:FeatureLayer>
+		
+		<org:FeatureLayer id="userlayer" x="100" y="316" width="174" height="93">					
+		</org:FeatureLayer>
+		
+		<org:Pan x="168" y="70">
+		</org:Pan>
+		<org:Zoom x="38" y="204">
+		</org:Zoom>
+		<org:ZoomBox x="95" y="264">
+		</org:ZoomBox>
+		
+	</org:Map>
+	
+</s:Group>

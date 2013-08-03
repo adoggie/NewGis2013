@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="470" height="300" creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="2"/>
+	</s:layout>
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="getSysParamList" result="getSysParamList_result(event)" fault="onfault(event)"/>
+			
+			<s:method name="deleteSysParam" result="deleteSysParam_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function getSysParamList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}				
+				dg.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			
+			
+			
+			
+			
+			private function deleteSysParam_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				onSearch();
+				Alert.show("删除成功!");
+				gisadmin.gisadmin.mainwindow.onDeleteSysParam();
+			}
+			
+			
+
+			protected function dg_itemClickHandler(event:ListEvent):void
+			{
+				if(this.dg.selectedItem == null){
+					return;
+				}
+				gisadmin.gisadmin.mainwindow.onShowSysParam(dg.selectedItem);
+			}
+			
+			private function onSearch():void{
+				server.getSysParamList(edtFilter.text);
+			}
+
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				onSearch();
+			}
+			
+			private function onalert_del(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteSysParam(dg.selectedItem.id);
+				}
+			}
+			
+			protected function btnDel_clickHandler(event:MouseEvent):void
+			{
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_del);
+			}
+
+
+			protected function btnAdd_clickHandler(event:MouseEvent):void
+			{
+				gisadmin.gisadmin.mainwindow.onAddSysParam();
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="33" verticalAlign="middle">
+		 
+		<s:Label text="名称"/>
+		<s:TextInput id="edtFilter" width="168"/>
+		<s:Button label="检索" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+		<s:Button label="新增" id="btnAdd" click="btnAdd_clickHandler(event)"/>
+		<s:Button label="删除" id="btnDel" click="btnDel_clickHandler(event)"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" id="dg" horizontalGridLines="true" horizontalScrollPolicy="auto" itemClick="dg_itemClickHandler(event)">
+		<mx:columns>
+			<mx:DataGridColumn headerText="编号" dataField="idx" width="40"/>
+			<mx:DataGridColumn headerText="名称" dataField="name"/>
+			<mx:DataGridColumn headerText="值" dataField="value"/>
+			<mx:DataGridColumn headerText="说明" dataField="comment"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+</s:Group>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="284" height="34">
+	<s:layout>
+		<s:HorizontalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			public function getParams():Object{
+				var ret:Object = new Object();
+				ret.start = dt_start.selectedDate;
+				if(ret.start != null){
+					ret.start.hours = 0;
+					ret.start.minutes = 0;
+					ret.start.seconds = 0;
+				}
+				ret.end = dt_end.selectedDate;
+				if(ret.end!=null){
+					ret.end.hours = 0;
+					ret.end.minutes = 0;
+					ret.end.seconds = 0;
+				}
+				return ret
+			}
+			
+			public function getValue():Object{
+				
+				return getParams();
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			 xmlns:s="library://ns.adobe.com/flex/spark" 
+			 xmlns:mx="library://ns.adobe.com/flex/mx" width="269" height="100%" textAlign="center">
+		<s:layout>
+			<s:HorizontalLayout gap="4" verticalAlign="middle"/>
+		</s:layout>
+	
+		
+		<s:Label text="日期："/>
+		<mx:DateField id="dt_start" formatString="YYYY-MM-DD"/>
+		<s:Label text="--"/>
+		<mx:DateField id="dt_end" formatString="YYYY-MM-DD"/>
+	</s:Group>
+</s:Group>

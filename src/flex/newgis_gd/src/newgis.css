@@ -1,0 +1,45 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+
+
+global
+{
+	color: #FBF9F9;
+	focus-color: #B02D2D;
+	textRollOverColor: #cccccc;
+	textSelectedColor: #ffffff;
+	
+
+	
+}
+
+
+#inputtext{
+	borderStyle: solid;
+	cornerRadius: 5;
+	dropShadowEnabled: true;
+	
+}
+
+
+s|Label.zoomIndicatorText
+{
+	color: #D44949;
+	fontSize: 14;
+	textDecoration: underline;
+	textRollOverColor:#0000ff;
+	textSelectedColor:#000000;
+}
+
+
+
+s|Button
+{
+	chromeColor: #ff0000;
+}
+
+
+
+
+

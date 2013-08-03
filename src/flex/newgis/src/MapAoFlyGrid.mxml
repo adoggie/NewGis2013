@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="348" height="240">
+	<s:layout>
+		<s:TileLayout orientation="rows" horizontalGap="2" verticalGap="2" horizontalAlign="justify"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:Button label="Button"/>
+	<s:Button label="Button"/>
+	<s:Button label="Button"/>
+	<s:Button label="Button" height="63" width="103"/>
+</s:Group>

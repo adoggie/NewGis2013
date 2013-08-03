@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="600" height="400"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://192.168.14.3:8000/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="getActiveObjectList" result="getActiveObjectList_result(event)" fault="onfault(event)"/>
+						
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;	
+			
+			private var _cb:Function = null;
+			private var _uid:int = -1; //是否考虑根据用户选择
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function getActiveObjectList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result); 
+			}
+
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				server.getActiveObjectList(this.edtFilter.text,_uid);
+			}
+			
+			public static function select(parent:DisplayObject,cb:Function):void{
+				var form:uiPaneDeviceQuery = uiPaneDeviceQuery(PopUpManager.createPopUp(parent,uiPaneDeviceQuery,true))
+				PopUpManager.centerPopUp(form);
+				form._cb = cb;
+			}
+			
+			public static function select_by_user(parent:DisplayObject,uid:int,cb:Function):void{
+				var form:uiPaneDeviceQuery = uiPaneDeviceQuery(PopUpManager.createPopUp(parent,uiPaneDeviceQuery,true))
+				PopUpManager.centerPopUp(form);
+				form._cb = cb;
+				form._uid = uid;
+			}
+
+			protected function btnOkay_clickHandler(event:MouseEvent):void
+			{
+				if(dg.selectedItem == null){
+					return;
+				}
+				_cb(dg.selectedItem);
+				PopUpManager.removePopUp(this);
+			}
+
+
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+
+		]]>
+	</fx:Script>
+	<s:Panel width="100%" height="100%" title="设备查询" cornerRadius="3">
+		<s:layout>
+			<s:VerticalLayout gap="2" paddingLeft="2" paddingTop="2" paddingRight="2" paddingBottom="2"/>
+		</s:layout>
+		<s:HGroup width="100%" height="30" verticalAlign="middle">
+			<s:Label text="名称"/>
+			<s:TextInput width="180" id="edtFilter"/>
+			<s:Button label="检索" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+			<s:Button label="选择" id="btnOkay" click="btnOkay_clickHandler(event)"/>
+			<s:Button label="取消" id="btnCancel" click="btnCancel_clickHandler(event)"/>
+		</s:HGroup>
+		<mx:DataGrid width="100%" height="100%" horizontalScrollPolicy="auto" id="dg"
+					 focusColor="#F5EAEA">
+			<mx:columns>
+				<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+				<mx:DataGridColumn headerText="名称" dataField="name"/>
+				<mx:DataGridColumn headerText="设备类型" dataField="devtype"/>
+				<mx:DataGridColumn headerText="接入服务器" dataField="dasid"/>
+				<mx:DataGridColumn headerText="是否启用" dataField="enable_s"/>
+				<mx:DataGridColumn headerText="当前状态"/>
+				<mx:DataGridColumn headerText="类型编码" dataField="type_s"/>
+				<mx:DataGridColumn headerText="电话" dataField="telphone"/>
+				<mx:DataGridColumn headerText="邮编" dataField="zipcode"/>
+				<mx:DataGridColumn headerText="地址" dataField="address"/>
+				<mx:DataGridColumn headerText="联系人" dataField="contact"/>
+				<mx:DataGridColumn headerText="开通时间" dataField="active_time_s"/>
+				<mx:DataGridColumn headerText="到期时间" dataField="expire_time_s"/>
+				<mx:DataGridColumn/>
+			</mx:columns>
+		</mx:DataGrid>
+	</s:Panel>
+</s:Group>

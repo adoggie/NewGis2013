@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- fxg/star.fxg -->
+<fxg:Graphic xmlns:fxg="http://ns.adobe.com/fxg/2008" version="2">
+<fxg:Path x="0" y="0" data="M 20 0 L 0 50 L 20 35 L 40 50 L 20 0  Z">
+
+<fxg:fill>
+<fxg:SolidColor color="#FF0000"/>
+</fxg:fill>
+
+<fxg:stroke>
+<fxg:SolidColorStroke
+caps="none"
+color="#00ff00"
+joints="miter"
+miterLimit="4"
+
+/>
+</fxg:stroke>
+</fxg:Path>
+
+</fxg:Graphic>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="446" height="32" textAlign="center">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+	<fx:Script>
+		<![CDATA[
+			public function getParams():Object{
+				var ret:Object = new Object();
+				ret.type = parseInt(ddl_type.selectedItem.value);
+				ret.start = dt_start.selectedDate;
+				ret.end = dt_end.selectedDate;
+				//ret.text = edt_text.text;
+				return ret
+			}
+			
+			//删除某些选择项
+			public function removeItems(types:Array):void{
+				var n:int=0;
+				var m:int;
+				for(m=0;m<types.length;m++){
+					for(;n<ddl_type.dataProvider.length;n++){
+						if( types[m] == parseInt(ddl_type.dataProvider[n].value) ){
+							ddl_type.dataProvider.removeItemAt(n);
+							break;
+						}		
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+		<s:Label text="查询按："/>
+		<s:DropDownList id="ddl_type" labelField="name"  selectedIndex="0">
+			<s:dataProvider>
+				<!-- 1 - 充值; 2 - 报单; 3 -转出；4 -转入；5 -奖金；6 -提款；7 -取消提款; 8-增加; 9 - 扣除;     -->				
+				<s:ArrayCollection >
+					<fx:Object name="所有" value="0"/>
+					<fx:Object name="充值" value="1"/>
+					<fx:Object name="报单" value="2"/>
+					<fx:Object name="转出" value="3"/>
+					<fx:Object name="转入" value="4"/>
+					<fx:Object name="奖金" value="5"/>
+					<fx:Object name="提款" value="6"/>
+					<fx:Object name="取消提款" value="7"/>
+					<fx:Object name="增加" value="8"/>
+					<fx:Object name="扣除" value="9"/>
+				</s:ArrayCollection>
+			</s:dataProvider>
+		</s:DropDownList>
+		<s:Label text="日期:"/>
+		<mx:DateField id="dt_start" formatString="YYYY-MM-DD" width="109"/>
+		<s:Label text="--"/>
+		<mx:DateField id="dt_end" formatString="YYYY-MM-DD" width="111"/>
+</s:Group>

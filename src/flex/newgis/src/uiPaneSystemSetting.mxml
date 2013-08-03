@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="456" height="312" 
+		 creationComplete="init()" title="系统设置" close="btnCancel_clickHandler(null)" xmlns:ns1="*">
+	<s:layout>
+		<s:VerticalLayout paddingLeft="2" paddingRight="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<!--
+			<s:method name="updateUserInfo" result="result_updateUserInfo(event)" fault="onfault(event)"/>
+			<s:method name="updateAlarmParameters" result="result_updateAlarmParameters(event)" fault="onfault(event)"/>
+			<s:method name="getUserInfo" result="result_getUserInfo(event)" fault="onfault(event)"/>
+			<s:method name="getAlarmParameters" result="result_getAlarmParameters(event)" fault="onfault(event)"/>
+			-->
+			<s:method name="getUserInfo" result="result_getUserInfo(event)" fault="onfault(event)"/>
+			<s:method name="updateUserInfo" result="result_updateUserInfo(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+		
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.StringUtil;
+			import com.sw2us.newgis.AppCore;
+			
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var _userinfo:Object;		//用户信息
+			private var _alarmparams:Object; 	//报警参数设置
+			private var _sysparams:Object; 		//系统参数
+			
+			private var _doafter:Function = null;
+			
+			public function show():void{
+				var s:CSSStyleDeclaration;
+				//_doafter = cb;
+				
+				PopUpManager.centerPopUp(this);
+				
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();	
+				IME.enabled = true;
+				this.focusEnabled = true;
+				
+				server.getUserInfo();
+			}
+			
+		 
+			private function result_updateUserInfo(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}
+				//_doafter();
+				AppCore.instance().getAppUser().d = cr.result;
+				PopUpManager.removePopUp(this);
+			}
+			
+		 
+			 
+			private function result_getUserInfo(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg);
+					return;
+				}		
+				
+				var u:Object;
+				u = cr.result;
+				AppCore.instance().getAppUser().d = u;
+				
+				this.edtUserName.text = u.name;
+				this.edtAddress.text = u.address;
+				this.edtZipCode.text = u.zipcode;
+				this.edtContect.text = u.contactman;
+				this.edtPhone.text = u.phone;
+				
+			}
+		 
+			
+			
+
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+
+
+			protected function btnOk_clickHandler(event:MouseEvent):void
+			{
+				if( this.edtNewPwd.text!=this.edtNewPwd2.text){
+					Alert.show("二次新密码不一致!");
+					return;
+				}
+				
+				if(  StringUtil.trim(edtEditPasswd.text).length == 0){
+					Alert.show("请输入修改密码");
+					return;
+				}
+				var d:Object = new Object();
+				d.name = this.edtUserName.text;
+				d.newpasswd = this.edtNewPwd.text;
+				d.passwd = this.edtEditPasswd.text;
+				d.address = this.edtAddress.text;
+				d.zipcode = this.edtZipCode.text;
+				d.phone = this.edtPhone.text;
+				d.contactman = this.edtContect.text;
+				d.delta = null;
+				server.updateUserInfo(d);
+			}
+
+		]]>
+	</fx:Script>
+	<mx:TabNavigator width="100%" height="100%" creationPolicy="all">
+		
+		<s:NavigatorContent label="用户" width="100%" height="100%">
+			<s:layout>
+				<s:BasicLayout/>
+			</s:layout>
+			<s:Label x="10" y="31" text="用户" width="44" textAlign="right"/>
+			<s:Label x="10" y="55" text="新密码" width="44" textAlign="right"/>
+			<s:TextInput x="58" y="24" id="edtUserName"/>
+			<s:TextInput x="58" y="51" displayAsPassword="true" id="edtNewPwd"/>
+			<s:Label x="10" y="83" text="联系人" width="44" textAlign="right"/>
+			<s:TextInput x="58" y="78" id="edtContect"/>
+			<s:Label x="254" y="83" text="电话"/>
+			<s:TextInput x="286" y="78" id="edtPhone"/>
+			<s:Label x="10" y="109" text="邮编" width="44" textAlign="right"/>
+			<s:TextInput x="58" y="105" id="edtZipCode"/>
+			<s:Label x="235" y="55" text="再次密码"/>
+			<s:TextInput x="286" y="51" displayAsPassword="true" id="edtNewPwd2"/>
+			<s:Label x="0" y="139" text="联系地址" width="54" textAlign="right"/>
+			<s:TextInput x="58" y="133" width="357" id="edtAddress"/>
+			<s:Label text="修改密码" x="5" y="172"/>
+			<s:TextInput width="120" displayAsPassword="true" id="edtEditPasswd" x="60" y="165"/>
+			
+		</s:NavigatorContent>
+		<s:NavigatorContent label="通用" width="100%" height="100%">
+			<s:CheckBox x="10" y="10" label="保存用户状态" id="chkSaveStatus"/>
+		</s:NavigatorContent>
+		
+	</mx:TabNavigator>
+	<s:HGroup width="100%" height="30" verticalAlign="middle">
+		<s:Button label="确定" id="btnOk" click="btnOk_clickHandler(event)"/>
+		<s:Button label="取消" id="btnCancel" click="btnCancel_clickHandler(event)"/>
+	</s:HGroup>
+</s:TitleWindow>

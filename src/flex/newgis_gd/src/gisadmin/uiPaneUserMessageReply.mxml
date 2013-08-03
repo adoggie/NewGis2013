@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="366" xmlns:ui="com.sw2us.newgis.ui.*"
+		 creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="getUserMessageList" result="getUserMessageList_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteUserMessage" result="deleteUserMessage_result(event)" fault="onfault(event)"/>
+			<s:method name="replyUserMessage" result="replyUserMessage_result(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			
+			
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function getUserMessageList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result); 
+			}
+			
+			private function deleteUserMessage_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				Alert.show("删除留言成功!");
+				onSearch();
+				
+			}
+			
+			private function replyUserMessage_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				Alert.show("留言回复成功!");
+				this.onSearch();
+				
+			}
+			
+			protected function dg_changeHandler(event:ListEvent):void
+			{
+				var d:Object;
+				d = dg.selectedItem;
+				this.edtTitle.text = d.title;
+				this.edtContent.text = d.content;
+				this.txtReplyTime.text = d.replytime;
+				this.txtReplyContent.text = d.replycontent;
+			}
+			
+			
+			protected function btnNew_clickHandler(event:MouseEvent):void
+			{
+				dg.selectedIndex = -1;
+				this.edtTitle.text="";
+				this.edtContent.text="";
+				this.txtReplyTime.text ="";
+				this.txtReplyContent.text="";
+			}
+			
+			
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.title = this.edtTitle.text;
+				d.content = this.edtContent.text;
+				if( dg.selectedIndex == -1){
+					server.createUserMessage(d);
+				}
+			}
+			
+			private function onSearch():void{
+				var time:Object;
+				time = dtFilter.getValue();
+				server.getUserMessageList(this.edtFilter.text,time.start,time.end,ckReplied.selected);
+			}
+			
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				onSearch();
+			}
+			
+			
+			protected function btnReply_clickHandler(event:MouseEvent):void
+			{
+				if( dg.selectedItem == null){
+					return ;
+				}
+				var d:Object = new Object();
+				d.replycontent = this.txtReplyContent.text;
+				server.replyUserMessage( dg.selectedItem.id,txtReplyContent.text);
+			}
+			
+			
+			private function onalert_del(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteUserMessage( dg.selectedItem.id);
+				}
+			}
+			
+			protected function btnDelete_clickHandler(event:MouseEvent):void
+			{
+				if( dg.selectedItem == null){
+					return ;
+				}
+				Alert.show("是否真的要删除?","警告",Alert.YES | Alert.CANCEL,this,onalert_del);
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="30" color="#C0B5B5" verticalAlign="middle">
+		<s:Label text="标题:"/>
+		<s:TextInput width="176" id="edtFilter"/>
+		<ui:uiSearcher4 width="259" id="dtFilter"/>
+		<s:Button label="检索" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+		<s:Button label="删除" id="btnDelete" click="btnDelete_clickHandler(event)"/>
+		<s:CheckBox label="已回复" id="ckReplied"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" id="dg" change="dg_changeHandler(event)" horizontalGridLines="true" horizontalScrollPolicy="auto">
+		<mx:columns>
+			<mx:DataGridColumn headerText="编号" dataField="idx" width="40"/>
+			<mx:DataGridColumn headerText="时间" dataField="time"/>
+			<mx:DataGridColumn dataField="user" headerText="用户"/>
+			<mx:DataGridColumn headerText="主题" dataField="title"/>
+			<mx:DataGridColumn dataField="content" headerText="内容"/>
+			<mx:DataGridColumn dataField="replytime" headerText="回复时间"/>
+			<mx:DataGridColumn dataField="replycontent" headerText="回复内容"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+	<s:Panel width="100%" height="260" title="留言内容">
+		<s:layout>
+			<s:BasicLayout/>
+		</s:layout>
+		<mx:TabNavigator y="0" height="100%" paddingTop="2" creationPolicy="all" right="10" left="10">
+			<s:NavigatorContent label="留言内容" width="100%" height="100%">
+				<s:layout>
+					<s:BasicLayout/>
+				</s:layout>
+				<s:Label x="10" y="21" text="主题"/>
+				<s:TextInput y="14" fontSize="14" id="edtTitle" right="10" left="44"/>
+				<s:Label x="12" y="68" text="内容"/>
+				<s:TextArea y="43" height="148" fontSize="14" id="edtContent" right="10" left="44"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent label="回复内容" width="100%" height="100%">
+				<s:Label x="10" y="16" text="时间:"/>
+				<s:Label y="17" text="2012-5-30 18:20:21" id="txtReplyTime" right="310" left="51"/>
+				<s:Label x="12" y="41" text="内容:"/>
+				<s:Button x="186" y="10" label="回复" height="25" id="btnReply" click="btnReply_clickHandler(event)"/>
+				<s:TextArea y="40" right="10" left="51" id="txtReplyContent"/>
+			</s:NavigatorContent>
+		</mx:TabNavigator>
+	</s:Panel>
+</s:Group>

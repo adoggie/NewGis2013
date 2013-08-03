@@ -1,0 +1,185 @@
+
+
+
+sequence<string> StringList_t;
+sequence<int>	IntList_t;
+
+sequence<string> UserIdList_t;
+sequence<string> SIDS_t;
+dictionary<string,string> Properties_t;
+//sequence<StrStr_t> StrStrList_t;
+
+sequence<byte> StreamBytes_t;
+sequence<string> StringIdList_t;
+sequence<byte> ImageData_t;
+sequence<ImageData_t> ImageDataList_t;
+
+struct MessageImage_t{
+// 1 - jpg ; 2 - gif ; 3 - png
+	int type ;
+	int width;
+	int height;
+	ImageData_t data;
+    string data64; // encoded by base64
+};
+
+
+
+struct GeoPoint_t{
+	float lon;
+	float lat;
+};
+
+struct GeoSize_t{
+	float cx;
+	float cy;
+};
+
+struct GeoCircle_t{
+	GeoPoint_t center;
+	float radius;
+};
+
+struct GeoRect_t{
+	float x;
+	float y;
+	float width;
+	float height;
+};
+
+struct GpsExtraData_t{
+	int     miles;    //里程数
+	int     power;  //电源状态
+	int     acc;    //acc 状态
+	int     av;
+};
+
+struct GpsData_t{
+	float lon;
+	float lat;
+	float speed;
+	float direction;
+	int time;
+	GpsExtraData_t extra;
+};
+
+struct LocationInfo_t{
+	GpsData_t 	gps;
+	string 		desc;
+};
+sequence<LocationInfo_t> LocationInfoList_t;
+
+//报警信息
+struct AlarmInfo_t{
+	string type ;
+	string params;   // json
+};
+
+struct MessageText_t{
+	int 	type;
+	string  content;
+};
+
+struct AuthToken_t{
+    string user_id;
+    string user_name;
+    string user_realname;
+    int    login_time;
+    int    login_type;
+    int    expire_time;
+    string  rights;
+    int    user_type; // 0 - stranger ; 1 - normal
+};
+
+struct Error_t{
+	bool 	succ;
+	int 	code;
+	string  msg;
+};
+
+struct CallReturn_t{
+	Error_t error;
+	string value;
+};
+
+struct TimeRange_t{
+    int start;
+    int end;
+};
+
+
+
+// IUserClient
+
+interface IUserClient{
+ 	void onGetLocation(string aoid,LocationInfo_t loc); 				//ƽ̨����gps��Ϣ��������ͻ���
+ 	void onGetMessage(string userid,MessageText_t msg);
+ 	void onGetDeviceAlarm(string aoid, AlarmInfo_t alarm); //设备报警
+
+ };
+
+interface IGatewayAdapter{
+	CallReturn_t login(string token);
+	void logout();
+	int heartbeat();
+};
+
+
+interface IUserService{
+	void userLogin(string userid,string gwaid);
+	void userLogout(string userid,string gwaid);
+};
+
+interface IAuthService{
+	string userAuth(string user,string passwd,int loginType);
+};
+
+interface ICtrlService{
+	Properties_t getProps();
+};
+
+interface INotificationService{
+	void sendSMS(string target,string content);
+	void sendMail(string target,string content);
+};
+
+
+
+interface IAlarmService{
+	void addItem(string aoid,int asid);
+	void removeItem(string aoid,int asid);
+};
+
+
+interface ITaskService{
+	Properties_t getProps();
+};
+
+
+//对ao设备事件感兴趣的用户对象
+interface IAoModuleClient{
+	void onGetGpsData(string aoid,GpsData_t gps);
+	void onGetAlarm(string aoid,AlarmInfo_t alarm);
+	void onModuleData(string json); //设备消息从das传送到接收者
+};
+
+interface IAoModuleCtrl{
+	void openListen(string aoid,string phone);
+	void closeListen(string aoid);
+	string getVersion(string aoid);
+	void onceNamed(string aoid);                //点名一次，要求设备即刻返回信息
+	void speedLimit(string aoid,int high,int low);
+	void oilCtrl(string aoid,bool onoff);    //油路控制
+	void reset(string aoid);                    //设备重启复位
+	void setFreqAccOn(string aoid,int freq);    //设置ACC开发送数据间隔,在ACC开的时候20秒传一次数据。
+	void setFreqAccOff(string aoid,int freq);    //设置ACC开发送数据间隔,在ACC关的时候60秒传一次数据。
+	void setBarrierLeave(string aoid,float x1,float y1,float x2,float y2); //设置出界围栏
+	void setBarrierEnter(string aoid,float x1,float y1,float x2,float y2); //设置入界围栏
+	void clearAlarms(string aoid);      //清除设备所有报警
+	void clearMiles(string aoid,int miles);       //清除设备记录的里程
+};
+
+interface IDtuService{
+	Properties_t getProps();
+};
+

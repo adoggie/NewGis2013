@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   minWidth="600" minHeight="400" xmlns:gisadmin="gisadmin.*"
+			   creationComplete="init()" width.Main="100%" height.Main="100%" xmlns:org="http://openscales.org" currentState="Login">
+	<s:layout>
+		<s:VerticalLayout gap="2"/>
+	</s:layout>
+	<s:states>
+		<s:State name="Main"/>
+		<s:State name="Login"/>
+	</s:states>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="login" result="login_result(event)" fault="onfault(event)"/>
+			<s:method name="logout" result="logout_result(event)" fault="onfault(event)"/>
+			<s:method name="getAoNearestGpsData" result="getAoNearestGpsData_result(event)" fault="onfault(event)"/>
+			
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.*;
+			import com.sw2us.newgis.*;
+			import com.sw2us.newgis.ActiveObjectEvent;
+			import com.sw2us.newgis.map.MapAo;
+			import com.sw2us.newgis.map.MapAoLayer;
+			import com.sw2us.newgis.map.MapAoMarker;
+			import com.sw2us.newgis.map.MapAoPathArrow;
+			import com.sw2us.newgis.ui.DialogInputLineText;
+			import com.sw2us.newgis.ui.uiMapGridItem;
+			import com.sw2us.newgis.util.DataSerial;
+			
+			import flashx.textLayout.tlf_internal;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.core.UIComponent;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.events.ResizeEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import org.openscales.core.StringUtils;
+			import org.openscales.core.events.FeatureEvent;
+			import org.openscales.core.feature.CustomMarker;
+			import org.openscales.core.feature.LineStringFeature;
+			import org.openscales.core.layer.FeatureLayer;
+			import org.openscales.core.style.Style;
+			import org.openscales.geometry.LineString;
+			import org.openscales.geometry.basetypes.*;
+			
+			import spark.events.IndexChangeEvent;
+			
+			public static var mainwindow:gisadmin = null;
+			private var _aolayer:MapAoLayer;
+			private var _aomarker:MapAoMarker ;
+			
+			
+			private function init():void{
+				mainwindow = this;
+				AppCore.instance();
+				
+				var sparkTitleWindowCSS:CSSStyleDeclaration=FlexGlobals.topLevelApplication.styleManager.getStyleDeclaration("spark.components.Panel");  
+				sparkTitleWindowCSS.setStyle("modalTransparencyColor", 'white');  
+				sparkTitleWindowCSS.setStyle("modalTransparencyBlur", 0);  
+				sparkTitleWindowCSS.setStyle("modalTransparency", 0);  
+				
+				var alertCSS:CSSStyleDeclaration=FlexGlobals.topLevelApplication.styleManager.getStyleDeclaration("mx.controls.Alert");  
+				alertCSS.setStyle("modalTransparencyColor", 'white');  
+				alertCSS.setStyle("modalTransparencyBlur", 0);    
+				alertCSS.setStyle("modalTransparency", 0);  
+				 
+				
+				
+				
+				pyamf.uri = AppCore.instance().getAmfServerUrl();				
+				
+			
+				
+				
+				
+			}
+			
+			private function initMap():void{
+				
+				var loc:Location = new Location(121.31,31.23);
+				this.layerchina.url =AppCore.instance().getMapServerUrl();
+				this.layerchina.layer.redraw();
+				
+			/*
+				_aolayer = new MapAoLayer(fxmap.map);	//添加ao活动对象层
+				fxmap.map.addLayer(_aolayer);
+				_aomarker = MapAoMarker.create2(_aolayer,AppResource.instance().getAoBitmapByAngle(180),loc );
+				_aomarker.setText("abc");
+				fxmap.map.moveTo(loc);
+				*/
+				
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			 
+			
+			private function login_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				this.currentState="Main";
+				//initMap();
+			}
+			
+			private function getAoNearestGpsData_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				var ao:Object;
+				ao = cr.result;
+				this.paneMap.title = ao.name;
+				if(ao.gps == null){
+					return;
+				}
+				this._aomarker.setText(ao.name);
+				var loc:Location = new Location(ao.gps.lon,ao.gps.lat);
+				this._aomarker.setLocation(loc);
+				fxmap.map.moveTo(loc);
+				
+			}
+			
+			private function logout_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				 
+			}
+
+			
+			
+			public function onAddNewClient(cb:Function):void{
+				this.tabInfo.selectedChild = this.sheetUserInfo;
+				this.paneUserInfo.newUser();
+			}
+			
+			public function onDeleteClient():void{
+				
+			}
+			
+			//显示客户信息
+			// d - 客户信息 ； cb - 完成修改之后通知到列表
+			public function onShowClient(d:Object,cb:Function=null):void{
+				this.tabInfo.selectedChild = this.sheetUserInfo;
+				this.paneUserInfo.showUser(d);
+			}
+			
+			public function onShowUserDevGroup(d:Object,cb:Function = null):void{
+				tabInfo.selectedChild = this.sheetUserGroup;
+				this.paneUserGroupInfo.showItem(d);
+			}
+			
+			public function onDeleteUserDevGroup():void{
+				this.paneUserGroupInfo.newItem(-1);
+			}
+			
+			public function onAddUserDevGroup(uid:int,cb:Function):void{
+				tabInfo.selectedChild = this.sheetUserGroup;
+				this.paneUserGroupInfo.newItem(uid);
+			}
+			
+			public function onShowSysDevGroup(d:Object,cb:Function = null):void{
+				tabInfo.selectedChild = this.sheetSysGroup;
+				this.paneSysGroupInfo.showItem(d);
+			}
+			
+			public function onDeleteSysDevGroup():void{
+				
+			}
+			
+			public function onAddSysDevGroup(cb:Function):void{
+				tabInfo.selectedChild = this.sheetSysGroup;
+				this.paneSysGroupInfo.newItem();
+			}
+			
+			public function onShowDevice(d:Object,cb:Function = null):void{
+				if( this.tabInfo.selectedChild != this.sheepMap){
+					this.tabInfo.selectedChild = sheetDeviceInfo;
+				}
+				this.paneDeviceInfo.showItem(d);
+				server.getAoNearestGpsData(d.id);
+				
+			}
+			
+			public function onDeleteDevice():void{
+				this.paneDeviceInfo.newItem();
+			}
+			
+			public function onAddDevice(cb:Function=null):void{
+				this.tabInfo.selectedChild = sheetDeviceInfo;
+				this.paneDeviceInfo.newItem();
+			}
+			
+			public function onAddSysParam():void{
+				this.tabInfo.selectedChild = this.sheetSysParam;
+				this.paneSysParam.newItem();
+			}
+			
+			public function onShowSysParam(d:Object,cb:Function=null):void{
+				this.tabInfo.selectedChild = this.sheetSysParam;
+				this.paneSysParam.showItem(d);
+			}
+			
+			public function onDeleteSysParam():void{
+				this.paneSysParam.newItem();
+			}
+			
+			
+			
+			
+			
+
+			protected function btnLogin_clickHandler(event:MouseEvent):void
+			{
+				server.login(this.edtUser.text,this.edtPasswd.text);
+			}
+
+
+			protected function sheetUserInfo_creationCompleteHandler(event:FlexEvent):void
+			{
+				initMap();
+			}
+
+
+			protected function btnExit_clickHandler(event:MouseEvent):void
+			{
+				this.currentState ="Login";
+			}
+
+		]]>
+	</fx:Script>
+	
+	
+	<s:HGroup width="100%" height="44" verticalAlign="middle" includeIn="Main" paddingRight="20">
+		<s:Label text="Gps服务控制管理台" fontSize="20"/>
+		<mx:Spacer width="100%" height="20"/>
+		<s:Button label="系统退出" id="btnExit" click="btnExit_clickHandler(event)"/>
+		
+	
+	</s:HGroup>
+		<mx:HDividedBox label="a" width="100%" height="100%" includeIn="Main" creationPolicy="all">
+		<s:VGroup width="100%" height="100%" verticalAlign="middle">
+			<s:TabBar dataProvider="{viewstack1}" width="100%"/>
+			<s:VGroup width="100%" height="100%">
+				<mx:ViewStack id="viewstack1" width="100%" height="100%" creationPolicy="all">
+					<s:NavigatorContent label="设备列表" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:PaneDeviceList x="-27" y="-1" width="100%" height="100%">
+						</gisadmin:PaneDeviceList>
+						
+					</s:NavigatorContent>
+					
+					<s:NavigatorContent label="设备分组" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:PaneSysDevGroupList x="0" y="0" width="100%" height="100%">
+						</gisadmin:PaneSysDevGroupList>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="客户管理" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:PaneClients x="0" y="0" width="100%" height="100%">
+						</gisadmin:PaneClients>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="系统参数" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneSystemParams x="127" y="142" width="100%" height="100%"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="登陆查询" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneAdminLoginQuery/>
+					</s:NavigatorContent>
+					
+					
+					<s:NavigatorContent label="留言处理" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneUserMessageReply width="100%" height="100%"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="公告管理" width="100%" height="100%">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneSysNoticeList width="100%" height="100%"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="" width="100%" height="100%">
+					</s:NavigatorContent>
+				</mx:ViewStack>
+			</s:VGroup>
+		</s:VGroup>
+			
+				<mx:TabNavigator x="-7" y="37" height="100%" paddingTop="1" width="500" id="tabInfo" creationPolicy="all">
+					<s:NavigatorContent label="用户信息" width="100%" height="100%" id="sheetUserInfo" creationComplete="sheetUserInfo_creationCompleteHandler(event)">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneUserInfo id="paneUserInfo">
+						</gisadmin:uiPaneUserInfo>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="设备信息" width="100%" height="100%" id="sheetDeviceInfo">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneDeviceInfo width="100%" id="paneDeviceInfo"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="地图" width="100%" height="100%" id="sheepMap">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<s:Panel width="100%" height="100%" id="paneMap">
+							<s:layout>
+								<s:BasicLayout/>
+							</s:layout>
+						<org:Map id="fxmap" width="100%" height="100%"  
+								 zoom="8" 
+								 center="121.486,30.95" >
+							<org:layout>
+								<s:BasicLayout/>
+							</org:layout>
+							<org:WMSC id="layerchina"   layers="china" 		
+									  resolutions="  0.000005, 0.000008, 0.000012, 0.000018, 0.000024, 0.000047, 0.000119, 0.000237,
+									  0.000474, 0.000948, 0.001660, 0.002371, 0.004742, 0.011854, 0.023708, 0.047416,
+									  0.094833"  
+									  >
+							</org:WMSC>
+							<org:MousePosition numdigits="4.4"  x="10" y="{fxmap.height-20}" width="195"   >
+							</org:MousePosition>
+							<org:DragHandler  />
+							<org:PanZoom x="5" y="5" map="{fxmap.map}" width="94" height="142">
+							</org:PanZoom>
+							<org:WheelHandler/>
+							
+							<!-- <org:Spinner x="{width / 2}" y="{height / 2}"/> -->
+							<!-- 加载时候的沙漏-->
+						</org:Map>
+						</s:Panel>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="系统设备组" width="100%" height="100%" id="sheetSysGroup">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneSysDevGroupInfo id="paneSysGroupInfo">
+						</gisadmin:uiPaneSysDevGroupInfo>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="用户设备组" width="100%" height="100%" id="sheetUserGroup">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:uiPaneUserDevGroupInfo id="paneUserGroupInfo">
+						</gisadmin:uiPaneUserDevGroupInfo>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="系统参数" width="100%" height="100%" id="sheetSysParam">
+						<s:layout>
+							<s:VerticalLayout/>
+						</s:layout>
+						<gisadmin:PaneSysParamInfo id="paneSysParam">
+						</gisadmin:PaneSysParamInfo>
+					</s:NavigatorContent>
+				</mx:TabNavigator>
+			
+		</mx:HDividedBox>
+	
+	
+	<s:HGroup width="100%" height="20" verticalAlign="middle" includeIn="Main">
+	</s:HGroup>
+	
+	
+	
+		<s:HGroup width="200" height="50%" includeIn="Login">
+		</s:HGroup>
+		<s:HGroup width="100%" height="200" verticalAlign="middle" includeIn="Login">
+			<mx:Spacer width="100%" height="20"/>
+			<s:BorderContainer width="400" height="180" backgroundColor="#D28A4A" fontSize="14" fontWeight="normal">
+				<mx:Image width="119" height="76" source="assets/sw2us_logo.png" x="6" y="8"/>
+				<s:Label x="72" y="101" text="用户名" fontSize="14" fontFamily="Arial" fontWeight="bold"/>
+				<s:Button x="301" y="124" label="进入系统" fontSize="14" fontFamily="Arial" fontWeight="bold"  chromeColor="#E95E02" height="28" tabIndex="2" id="btnLogin" click="btnLogin_clickHandler(event)"/>
+				<s:TextInput x="136" y="129" fontSize="14" displayAsPassword="true" fontFamily="Arial" fontWeight="bold" contentBackgroundColor="#EFE9E9" tabIndex="1" id="edtPasswd" color="#F40A0A"/>
+				<s:TextInput x="136" y="97" fontSize="14" displayAsPassword="false" fontFamily="Arial" fontWeight="bold" contentBackgroundColor="#EFE9E9" tabIndex="0" id="edtUser" color="#F40A0A" text="admin"/>
+				<s:Label x="80" y="137" text="口令" fontSize="14" fontFamily="Arial" fontWeight="bold"/>
+				<s:Label x="114" y="49" text="Gps系统管理控制台" fontSize="25" fontWeight="bold"/>
+				<s:Label x="10" y="161" text="www.sw2us.com 2008-2012" fontWeight="bold"/>
+			</s:BorderContainer>
+			<mx:Spacer width="100%" height="20"/>
+		</s:HGroup>
+	
+	<s:HGroup width="200" height="50%" includeIn="Login">	
+	</s:HGroup>
+</s:Application>

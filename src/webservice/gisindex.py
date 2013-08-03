@@ -1,0 +1,1 @@
+﻿# -*- coding:utf-8 -*-# gisIndex.py # 建立geo对象索引表 import sys,os,os.path,time,struct,traceback,datetimeimport gisbase,giserrorif __name__=='__main__':	pass

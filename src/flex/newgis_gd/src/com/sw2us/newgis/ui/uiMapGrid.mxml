@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="100%" xmlns:ui="com.sw2us.newgis.ui.*"
+		  resize="resizeHandler(event)"  >
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.events.ResizeEvent;
+			protected function resizeHandler(event:ResizeEvent):void
+			{
+				
+				//Alert.show(event.target.toString());
+				//var ui:UIComponent = event.target as UIComponent;
+				
+				onResize( width,height);
+				//event.
+			}
+
+			public function  onResize(width:int,height:int):void{
+				var w:Number,h:Number;
+				w = (width-15)/2;
+				h = (height)/2;
+				//tile.columnWidth = width/2;
+				// tile.rowHeight = height/2;
+			//	tile.width = width/2;
+			//	tile.height = height/2;
+				map1.width = map2.width = map3.width = map4.width = w;
+				map1.height = map2.height = map3.height = map4.height = h;
+				map1.x = 5;
+				map1.y = 0;
+				map2.x = map1.x + map1.width +5;
+				map2.y = map1.y;
+				map3.x = map1.x ;
+				map3.y = map1.y + map1.height;
+				map4.x = map2.x ;
+				map4.y = map3.y;
+				trace(width,height);
+				//trace('tilelayout: width ',tile.columnWidth,' height',tile.rowHeight);
+			}
+		]]>
+	</fx:Script>
+<!--
+	<s:TileGroup width="100%" height="100%" requestedRowCount="2" requestedColumnCount="2"  
+				  verticalCenter="0" horizontalCenter="0" id="tile" horizontalGap="2" verticalGap="2">
+-->
+		<ui:uiMapGridItem width="200" height="200" id="map1" x="0">
+			<ui:layout>
+				<s:VerticalLayout/>
+			</ui:layout>
+		</ui:uiMapGridItem>
+		<ui:uiMapGridItem width="200" height="200" id="map2" x="200">
+			<ui:layout>
+				<s:VerticalLayout/>
+			</ui:layout>
+		</ui:uiMapGridItem>
+		<ui:uiMapGridItem width="200" height="200" id="map3" y="200" x="0">
+			<ui:layout>
+				<s:VerticalLayout/>
+			</ui:layout>
+		</ui:uiMapGridItem>
+		<ui:uiMapGridItem id="map4" width="200" height="200" x="200" y="200">
+			<ui:layout>
+				<s:VerticalLayout/>
+			</ui:layout>
+		</ui:uiMapGridItem>
+<!--	
+</s:TileGroup>
+	-->
+	
+</s:Group>

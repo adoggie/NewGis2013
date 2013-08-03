@@ -1,0 +1,1064 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="650" height="375" color="#D3CBCB"
+		  creationComplete="init()">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			
+			<s:method name="getBarrierList" result="getBarrierList_result(event)" fault="onfault(event)"/>
+			<s:method name="createAsi" result="createAsi_result(event)" fault="onfault(event)"/>
+			<s:method name="deleteAsi" result="deleteAsi_result(event)" fault="onfault(event)"/>
+			<s:method name="updateAsi" result="updateAsi_result(event)" fault="onfault(event)"/>
+			<s:method name="getAsiList" result="getAsiList_result(event)" fault="onfault(event)"/>
+			<s:method name="getAsiInfo" result="getAsiInfo_result(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+		
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.AppCore;
+			import com.sw2us.newgis.util.Geometry;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.StringUtil;
+			
+			import org.openscales.core.StringUtils;
+			
+			import spark.events.TextOperationEvent;
+			
+			
+			[Bindable]
+			private var _filters:ArrayCollection = new ArrayCollection();
+			[Bindable]
+			private var _actions:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			private var _barriers:ArrayCollection = new ArrayCollection();
+			
+			private var _asid:int  = -1;
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();	
+				this.onShowAsiList();
+				server.getBarrierList();
+				initData();
+			}
+			
+			private function initData():void{
+				this.txtHelp.text = "   报警配置项一旦被创建，将进入报警监控状态，一旦报警条件成立，将触发一系列的报警联动行为。" +
+					"\n-- 报警条件： " +
+					"\n  - 持续时间 - 报警参数满足触发条件，并维持一段时间继续满足触发条件的时间值，单位默认为: 秒" +
+					"\n  - 抑制时间 - 报警一旦触发并产生报警动作之后，系统将报警监控项置于等待空闲状态，时间到达之后重新加入报警检测队列。代为默认为：分" +
+					"\n     (输入格式可采用: 数字+[smh]方式  例如: 10s 10秒 ; 5m 5分钟 ; 1h 1小时)" +
+					"\n  - 速度:       设置速度区间值来检测报警条件" +
+					"\n  - 围栏:       围栏支持进入和离开地理区域，围栏需在主程序中创建" +
+					"\n  - 设备掉电:   检测Gps设备外部电源故障或者被切断" +
+					"\n  - Gps失锁:    目标无法接收Gps信号的情况" +
+					"\n  - ACC状态:    可以检测汽车电源开启和关闭状态" +
+					"\n  - 设备离线:   目标GSM通信故障" +
+					"\n  - SOS:        目标按动紧急求救按键触发报警" +
+					"\n-- 报警触发:" +
+					"\n  - 邮件:       允许发送报警消息到多个邮件地址,以,分隔" +
+					"\n  - 短信:       允许发送报警消息到多个手机号码,以,分隔" +
+					"\n  - 取消 报警:   报警触发完成联动之后此报警将被取消监控" +
+					"\n  - 断油:        车辆切断油路" +
+					"\n  - 断电:        车辆切断电路";
+				
+				
+			}
+			
+			private function getBarrierList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					Alert.show(cr.msg,"警告");
+					return;
+				}
+				cbBarriers.labelField = "name";
+				_barriers = new ArrayCollection(cr.result);
+				this.cbBarriers.dataProvider = _barriers;
+				cbBarriers.selectedIndex = 0;
+				
+			}
+			
+			private function onfault(event:FaultEvent):void{
+				
+				Alert.show(event.fault.faultDetail,"错误 ");
+			}
+			
+			
+			private function createAsi_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"提示");
+					return;
+				}
+				this._asid = cr.result;
+				this.onShowAsiList();
+				Alert.show("创建报警项成功!","提示"); 
+			}
+			
+			private function deleteAsi_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"提示");
+					return;
+				}
+			 	this._asid = -1;
+				this.resetForNew();
+				this.onShowAsiList();
+				Alert.show("删除操作成功!","提示");
+			}
+			
+			private function updateAsi_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"提示");
+					return;
+				}		
+				Alert.show("更新报警项成功!","提示");
+			}
+			
+			private function getAsiList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"提示");
+					return;
+				}
+				this.dgPolicies.dataProvider = new ArrayCollection( cr.result);
+			}
+			
+			private function getAsiInfo_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg,"提示");
+					return;
+				}
+				showAsiInfo(cr.result); 
+				
+			}
+			
+			private function showAsiInfo(dr:Object):void{
+				//var dr:Object;
+				//dr = dgPolicies.selectedItem;
+				this._asid = dr.id;
+				this.edtPolicyName.text = dr.name;
+				this.ckEnable.selected = dr.enable;
+				this.edtSupressTime.text = dr.filter.suppress_duration.toString(); 
+				this.edtSuppressWait.text = dr.filter.suppress_wait.toString();
+				
+				this._filters = new ArrayCollection();
+				
+				var n:int;
+				var it:Object;
+				var d:Object;
+				for(n=0;n<dr.filter.params.length;n++){					
+					it = dr.filter.params[n];
+					if( it.name =="offline"){
+						d= new Object();
+						d.name = "设备离线";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);		
+					}
+					if( it.name =="powerlost"){
+						d = new Object();
+						d.name = "设备掉电";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if( it.name =="gpslost"){
+						d = new Object();
+						d.name = "GPS失锁";
+						d.value = "";
+						d.d =it;
+						_filters.addItem(d);	
+					}
+					if( it.name == "acc_on"){
+						d = new Object();												
+						d.value = "";
+						
+						d.name = "ACC 开";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if( it.name == "acc_off"){
+						d = new Object();												
+						d.value = "";
+						d.name = "ACC 关";
+						
+						d.d = new Object();						
+						d.d = it;																		
+						_filters.addItem(d);
+					}
+					if( it.name =="sos"){
+						d = new Object();
+						d.name = "SOS求救";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if(it.name=="speedover"){
+						d = new Object();
+						d.name = "速度"
+						d.value = StringUtils.sprintf("%d - %d",it.param[0],it.param[1]);
+						d.d = it;
+						_filters.addItem(d);
+						
+					}
+					if(it.name == "barrier_in"){
+						d = new Object();
+						d.name = "围栏"											
+						d.value = StringUtils.sprintf("[进入]%s",it.param[0]); 						
+						d.d = it;										
+						
+						_filters.addItem(d);
+					}
+					if(it.name =="barrier_out"){
+						d = new Object();
+						d.name = "围栏"
+						d.value = StringUtils.sprintf("[离开]%s",it.param[0]);
+						d.d = it;									
+						_filters.addItem(d);
+					}
+					
+					
+				}// end for
+				
+				//显示时间信息
+				if(1){
+					ckTimeLimitDayRange.selected = false;
+					dtStart.selectedDate = null;
+					dtEnd.selectedDate = null;
+					if( dr.filter.time.timerange!=null){
+						ckTimeLimitDayRange.selected = true;
+						dtStart.selectedDate = dr.filter.time.timerange[0];
+						dtEnd.selectedDate = dr.filter.time.timerange[1];
+					} 
+					ckTimeLimitHours.selected = false;
+					edtHourStart.text = "0";
+					edtHourEnd.text = "0";
+					if( dr.filter.time.daytimes !=null){
+						ckTimeLimitHours.selected = true;
+						edtHourStart.text = dr.filter.time.daytimes[0].toString();
+						edtHourEnd.text = dr.filter.time.daytimes[1].toString();						
+					}
+					ckTimeLimitWeeks.selected = false;
+					ckWeek1.selected = false;
+					ckWeek2.selected = false;
+					ckWeek3.selected = false;
+					ckWeek4.selected = false;
+					ckWeek5.selected = false;
+					ckWeek6.selected = false;
+					ckWeek7.selected = false;
+					if( dr.filter.time.weekdays!=null){
+						ckTimeLimitWeeks.selected = true;
+						ckWeek1.selected  = dr.filter.time.weekdays[0]?true:false;
+						ckWeek2.selected  = dr.filter.time.weekdays[1]?true:false;
+						ckWeek3.selected  = dr.filter.time.weekdays[2]?true:false;
+						ckWeek4.selected  = dr.filter.time.weekdays[3]?true:false;
+						ckWeek5.selected  = dr.filter.time.weekdays[4]?true:false;
+						ckWeek6.selected  = dr.filter.time.weekdays[5]?true:false;
+						ckWeek7.selected  = dr.filter.time.weekdays[6]?true:false;
+					}						
+				}
+				
+				///
+				this._actions = new ArrayCollection();
+				/*
+				edtActMailRecieptions.text = "";
+				edtActMailContent.text ="";
+				edtActSMSRecieptions.text="";
+				edtActSMSContent.text ="";
+				*/
+				for(n=0;n<dr.actions.length;n++){
+					it = dr.actions[n];
+					if( it.type =="mail"){
+						d = new Object();
+						d.name = "邮件通知";
+						d.value = "接收:"+ it.params.tolist + "| 内容:" + it.params.content;	
+						d.d = it;					
+						this._actions.addItem(d);
+					}
+					if( it.type =="sms"){
+						d = new Object();
+						d.name = "短信通知";
+						d.value = "接收:"+ it.params.tolist + "| 内容:" + it.params.content;	
+						d.d = it;					
+						this._actions.addItem(d);
+					}
+					if( it.type =="asi_detach"){
+						d = new Object();
+						d.name = "报警撤消";
+						d.value = "系统将不再检测报警条件";	
+						d.d = it;					
+						this._actions.addItem(d);
+					}
+					
+				}
+			}
+			
+			
+			protected function btnAddPowerOff_clickHandler(event:MouseEvent):void
+			{				
+				var d:Object = new Object();
+				d.name = "设备掉电";
+				d.value = "";
+				d.d = new Object();
+				d.d.name ="powerlost";
+				d.d.param = null;
+				_filters.addItem(d);
+			}
+
+			protected function btnAddGpsLost_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "GPS失锁";
+				d.value = "";
+				d.d = new Object();
+				d.d.name ="gpslost";
+				d.d.param = null;
+				_filters.addItem(d);
+			}
+
+
+			protected function btnAddAccDetect_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				
+				d.name = ""
+				d.value = "";
+				d.d = new Object();
+				d.d.name ="";
+				d.d.param = null;
+				
+				if( cbAccType.selectedIndex == 0){
+					d.name = "ACC 关";
+					d.d.name = "acc_off";
+						
+				}else{
+					d.name = "ACC 开";
+					d.d.name = "acc_on";
+				}
+				
+				_filters.addItem(d);
+				
+				
+			}
+
+
+			protected function btnAddOffline_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "设备离线";
+				d.value = "";
+				d.d = new Object();
+				d.d.name ="offline";
+				d.d.param = null;
+				_filters.addItem(d);
+			}
+
+
+			protected function btnAddKeySos_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "SOS求救";
+				d.value = "";
+				d.d = new Object();
+				d.d.name ="sos";
+				d.d.param = null;
+				_filters.addItem(d);
+			}
+
+
+			protected function dgFilters_changeHandler(event:ListEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+			protected function btnDelFilter_clickHandler(event:MouseEvent):void
+			{
+				if(this.dgFilters.selectedItem == null){
+					return ;
+				}
+				this._filters.removeItemAt(dgFilters.selectedIndex);
+			}
+
+
+			protected function btnAddSpeed_clickHandler(event:MouseEvent):void
+			{
+				var min:int,max:int;
+				min = parseInt(this.edtSpeedStart.text) ;
+				max = parseInt(this.edtSpeedEnd.text);
+				if( min>=max){
+					Alert.show("错误的速度区间值!","提示");
+					return;
+				}
+				var d:Object = new Object();
+				d.name = "速度"
+				d.value = StringUtils.sprintf("%d - %d",min,max);
+				d.d = new Object();
+				d.d.name ="speedover";
+				d.d.param = [min,max];
+				_filters.addItem(d);
+				
+			}
+
+
+			protected function btnAddBarrier_clickHandler(event:MouseEvent):void
+			{
+				if( this.cbBarriers.selectedItem == null){
+					Alert.show("请选择围栏!","提示");
+					return ;
+				}
+				if( this.rbIn.selected == false && this.rbOut.selected == false){
+					Alert.show("请选择进入或离开围栏方式!","提示");
+					return;
+				}
+				var d:Object = new Object();
+				d.name = "围栏"
+				d.d = new Object();				
+				if(rbIn.selected){
+					d.d.name = "barrier_in";					
+					d.value = StringUtils.sprintf("[进入]%s",cbBarriers.selectedItem.name); 
+				}else{
+					d.d.name = "barrier_out";
+					d.value = StringUtils.sprintf("[离开]%s",cbBarriers.selectedItem.name);
+				}
+				
+				// [name,rect,rect2,..]
+				d.d.param = [cbBarriers.selectedItem.name,Geometry.splitRectArray(cbBarriers.selectedItem.geo_wkt)];					
+				_filters.addItem(d);
+			}
+
+
+			protected function btnLoadBarrier_clickHandler(event:MouseEvent):void
+			{
+				server.getBarrierList();
+			}
+
+
+			protected function btnActMailSave_clickHandler(event:MouseEvent):void
+			{
+				
+				if( StringUtil.trim(edtActMailRecieptions.text).length == 0){
+					Alert.show("请提供邮件接收者!","提示");
+					return;
+				}
+				
+				if( StringUtil.trim(edtActMailContent.text).length == 0){
+					Alert.show("邮件内容不能为空!","提示");
+					return;
+				}
+				
+				if( parseInt( edtActMailTimes.text) <= 0){
+					Alert.show("执行次数无效!","提示");
+					return;
+				}
+				
+				if( parseInt( this.edtActMailWait.text) <= 0){
+					Alert.show("执行间隔无效!","提示");
+					return;
+				}
+				
+				var d:Object = new Object();
+				d.name = "邮件通知";
+				d.value = "接收:"+StringUtil.trim(edtActMailRecieptions.text) + "| 内容:" + StringUtil.trim(edtActMailContent.text);
+				d.d = new Object();
+				d.d.type="mail";
+				d.d.times = parseInt( edtActMailTimes.text);
+				d.d.freq = parseInt( this.edtActMailWait.text);
+				d.d.params = new Object();
+				d.d.params.tolist=StringUtil.trim(edtActMailRecieptions.text);
+				d.d.params.content = StringUtil.trim(edtActMailContent.text);
+				this._actions.addItem(d);
+			}
+			
+			private function getFilter_Times(filter:Object):Boolean{
+				var timeval:Object = new Object();
+				
+				timeval.timerange= null;
+				timeval.daytimes = null;
+				timeval.weekdays = null;
+				
+				if(ckTimeLimitDayRange.selected){
+					
+					if(dtStart.selectedDate == null || dtEnd.selectedDate == null){
+						Alert.show("请选择时间范围!","提示");
+						return false;
+					}
+					timeval.timerange = [dtStart.selectedDate,dtEnd.selectedDate];
+				}
+				
+				if(ckTimeLimitHours.selected){
+					if(edtHourStart.text.length ==0 || edtHourEnd.text.length == 0){
+						Alert.show("请设置时段!","提示");
+						return false;
+					}
+					var s:int,e:int;
+					s = parseInt(edtHourStart.text);
+					e = parseInt(edtHourEnd.text);
+					timeval.daytimes = [s,e];	
+				}
+				
+				if(ckTimeLimitWeeks.selected){
+					var days:Array ;
+					days = [ ckWeek1.selected?1:0,
+						ckWeek2.selected?1:0,
+						ckWeek3.selected?1:0,
+						ckWeek4.selected?1:0,
+						ckWeek5.selected?1:0,
+						ckWeek6.selected?1:0,
+						ckWeek7.selected?1:0
+					];
+					timeval.weekdays = days;
+				}
+				filter.time = timeval;
+				return true;
+			}
+
+
+			protected function btnNewPolicy_clickHandler(event:MouseEvent):void
+			{
+				resetForNew();
+			}
+			
+			private function resetForNew():void{
+				this._actions = new ArrayCollection();
+				this._filters = new ArrayCollection();
+				this.dgPolicies.selectedIndex = -1;
+				this.edtPolicyName.text = "";
+				this._asid = -1;
+			}
+
+			private function onShowAsiList():void{
+				server.getAsiList(edtSearchName.text);
+			}
+			
+			protected function edtActMailTimes_changeHandler(event:TextOperationEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+
+			protected function btnActSMSSave_clickHandler(event:MouseEvent):void
+			{
+				if( StringUtil.trim(this.edtActSMSRecieptions.text).length == 0){
+					Alert.show("请提供短信接收者!","提示");
+					return;
+				}
+				
+				if( StringUtil.trim(edtActSMSContent.text).length == 0){
+					Alert.show("短信内容不能为空!","提示");
+					return;
+				}
+				
+				if( parseInt( edtActSMSTimes.text) <= 0){
+					Alert.show("执行次数无效!","提示");
+					return;
+				}
+				
+				if( parseInt( this.edtActSMSWait.text) <= 0){
+					Alert.show("执行间隔无效!","提示");
+					return;
+				}
+				
+				var d:Object = new Object();
+				d.name = "短信通知";
+				d.value = "接收:"+StringUtil.trim(edtActSMSRecieptions.text) + "| 内容:" + StringUtil.trim(edtActSMSContent.text);
+				d.d = new Object();
+				d.d.type="sms";
+				d.d.times = parseInt( edtActSMSTimes.text);
+				d.d.freq = parseInt( this.edtActSMSWait.text);
+				d.d.params = new Object();
+				d.d.params.tolist=StringUtil.trim(edtActSMSRecieptions.text);
+				d.d.params.content = StringUtil.trim(edtActSMSContent.text);
+				this._actions.addItem(d);
+			}
+
+
+			protected function btnDelAction_clickHandler(event:MouseEvent):void
+			{
+				if( dgActions.selectedItem == null){
+					return;
+				}
+				this._actions.removeItemAt(dgActions.selectedIndex);
+				
+			}
+
+
+			protected function btnSave_clickHandler(event:MouseEvent):void
+			{
+				if( StringUtil.trim(edtPolicyName.text).length == 0){
+					Alert.show("必须提供报警策略名称!","提示");
+					return;
+				}
+				if( this._filters.length == 0){
+					Alert.show("您还未添加报警触发条件!","提示");
+					return ;
+				}
+				if( this._actions.length == 0){
+					Alert.show("您未添加报警触发动作!","提示");
+					return ;
+				}
+				var asi:Object = new Object();
+				asi.name = this.edtPolicyName.text;
+				asi.enable = this.ckEnable.selected;
+				asi.filter = new Object();
+				asi.filter.suppress_duration = parseInt(this.edtSupressTime.text);
+				asi.filter.suppress_wait = parseInt(this.edtSuppressWait.text);
+				
+				asi.filter.params = this._filters.toArray();
+				asi.actions = this._actions.toArray();
+				if(!getFilter_Times(asi.filter)){
+					return ;
+				}
+				
+				if(this._asid == -1){
+					server.createAsi(asi,"");	
+				}else{
+					asi.id = this._asid;
+					server.updateAsi(asi,"");
+				}
+				
+			}
+
+
+			protected function dgPolicies_clickHandler(event:MouseEvent):void
+			{
+				if(this.dgPolicies.selectedItem == null){
+					return ;
+				}
+				server.getAsiInfo(dgPolicies.selectedItem.id);
+				return ;
+				/*
+				var dr:Object;
+				dr = dgPolicies.selectedItem;
+				this._asid = dr.id;
+				this.edtPolicyName.text = dr.name;
+				this.ckEnable.selected = dr.enable;
+				this.edtSupressTime.text = dr.filter.suppress_duration.toString(); 
+					
+				this._filters = new ArrayCollection();
+				
+				var n:int;
+				var it:Object;
+				var d:Object;
+				for(n=0;n<dr.filter.params.length;n++){					
+					it = dr.filter.params[n];
+					if( it.name =="offline"){
+						d= new Object();
+						d.name = "设备离线";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);		
+					}
+					if( it.name =="powerlost"){
+						d = new Object();
+						d.name = "设备掉电";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if( it.name =="gpslost"){
+						d = new Object();
+						d.name = "GPS失锁";
+						d.value = "";
+						d.d =it;
+						_filters.addItem(d);	
+					}
+					if( it.name == "acc_on"){
+						d = new Object();												
+						d.value = "";
+												
+						d.name = "ACC 开";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if( it.name == "acc_off"){
+						d = new Object();												
+						d.value = "";
+						d.name = "ACC 关";
+						
+						d.d = new Object();						
+						d.d = it;																		
+						_filters.addItem(d);
+					}
+					if( it.name =="sos"){
+						d = new Object();
+						d.name = "SOS求救";
+						d.value = "";
+						d.d = it;
+						_filters.addItem(d);
+					}
+					if(it.name=="speedover"){
+						d = new Object();
+						d.name = "速度"
+						d.value = StringUtils.sprintf("%d - %d",it.param[0],it.param[1]);
+						d.d = it;
+						_filters.addItem(d);
+					
+					}
+					if(it.name == "barrier_in"){
+						d = new Object();
+						d.name = "围栏"											
+						d.value = StringUtils.sprintf("[进入]%s",it.param[0]); 						
+						d.d = it;										
+						
+						_filters.addItem(d);
+					}
+					if(it.name =="barrier_out"){
+						d = new Object();
+						d.name = "围栏"
+						d.value = StringUtils.sprintf("[离开]%s",it.param[0]);
+						d.d = it;									
+						_filters.addItem(d);
+					}
+					
+					
+				}// end for
+				
+				//显示时间信息
+				if(1){
+					ckTimeLimitDayRange.selected = false;
+					dtStart.selectedDate = null;
+					dtEnd.selectedDate = null;
+					if( dr.filter.time.timerange!=null){
+						ckTimeLimitDayRange.selected = true;
+						dtStart.selectedDate = dr.filter.time.timerange[0];
+						dtEnd.selectedDate = dr.filter.time.timerange[1];
+					} 
+					ckTimeLimitHours.selected = false;
+					edtHourStart.text = "0";
+					edtHourEnd.text = "0";
+					if( dr.filter.time.daytimes !=null){
+						ckTimeLimitHours.selected = true;
+						edtHourStart.text = dr.filter.time.daytimes[0].toString();
+						edtHourEnd.text = dr.filter.time.daytimes[1].toString();						
+					}
+					ckTimeLimitWeeks.selected = false;
+					ckWeek1.selected = false;
+					ckWeek2.selected = false;
+					ckWeek3.selected = false;
+					ckWeek4.selected = false;
+					ckWeek5.selected = false;
+					ckWeek6.selected = false;
+					ckWeek7.selected = false;
+					if( dr.filter.time.weekdays!=null){
+						ckTimeLimitWeeks.selected = true;
+						ckWeek1.selected  = dr.filter.time.weekdays[0]?true:false;
+						ckWeek2.selected  = dr.filter.time.weekdays[1]?true:false;
+						ckWeek3.selected  = dr.filter.time.weekdays[2]?true:false;
+						ckWeek4.selected  = dr.filter.time.weekdays[3]?true:false;
+						ckWeek5.selected  = dr.filter.time.weekdays[4]?true:false;
+						ckWeek6.selected  = dr.filter.time.weekdays[5]?true:false;
+						ckWeek7.selected  = dr.filter.time.weekdays[6]?true:false;
+					}						
+				}
+				
+				///
+				this._actions = new ArrayCollection();
+				edtActMailRecieptions.text = "";
+				edtActMailContent.text ="";
+				edtActSMSRecieptions.text="";
+				edtActSMSContent.text ="";
+				
+				for(n=0;n<dr.actions.length;n++){
+					it = dr.actions[n];
+					if( it.type =="mail"){
+						d = new Object();
+						d.name = "邮件通知";
+						d.value = "接收:"+ it.params.tolist + "| 内容:" + it.params.content;	
+						d.d = it;					
+						this._actions.addItem(d);
+					}
+					if( it.type =="sms"){
+						d = new Object();
+						d.name = "短信通知";
+						d.value = "接收:"+ it.params.tolist + "| 内容:" + it.params.content;	
+						d.d = it;					
+						this._actions.addItem(d);
+					}
+				}
+				
+				
+				*/
+			}
+
+
+			protected function btnAsiSearch_clickHandler(event:MouseEvent):void
+			{
+				this.onShowAsiList();
+			}
+
+
+			protected function btnDelPolicy_clickHandler(event:MouseEvent):void
+			{
+				if( this.dgPolicies.selectedItem == null){
+					return;
+				}
+				Alert.show("是否真的要删除?(将删除所有相关设备的报警设置)","警告",Alert.YES | Alert.CANCEL,this,onalert_delasi);
+			}
+			
+		
+			private function onalert_delasi(event:CloseEvent):void{
+				if( event.detail == Alert.YES){
+					server.deleteAsi(dgPolicies.selectedItem.id);
+				}
+			}
+
+
+			protected function btnActAsiDetach_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "报警撤消";
+				d.value = "系统将不再检测报警条件";
+				d.d = new Object();
+				d.d.type="asi_detach";
+				d.d.times = 1;
+				d.d.freq = 5;
+				d.d.params = new Object();
+				d.d.params.tolist="";
+				d.d.params.content = "";
+				this._actions.addItem(d);
+			}
+
+
+			protected function dgActions_clickHandler(event:MouseEvent):void
+			{
+				var d:Object;
+				d = dgActions.selectedItem;
+				if(d == null){
+					return;
+				}
+				d = d.d;
+				if(d.type=="sms"){
+					edtActSMSTimes.text = d.times.toString();
+					edtActSMSWait.text = d.freq.toString();
+					edtActSMSRecieptions.text = d.params.tolist;
+					edtActSMSContent.text = d.params.content;
+				}
+				if(d.type=="mail"){
+					edtActMailTimes.text = d.times.toString();
+					edtActMailWait.text = d.freq.toString();
+					edtActMailRecieptions.text = d.params.tolist;
+					edtActMailContent.text = d.params.content;
+				}
+			}
+
+
+			protected function btnActAsiPowerOff_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "断电";
+				d.value = "报警触发切断电源";
+				d.d = new Object();
+				d.d.type="poweroff";
+				d.d.times = 1;
+				d.d.freq = 5;
+				d.d.params = new Object();
+				d.d.params.tolist="";
+				d.d.params.content = "";
+				this._actions.addItem(d);
+			}
+
+
+			protected function btnAsiActOilOff_clickHandler(event:MouseEvent):void
+			{
+				var d:Object = new Object();
+				d.name = "断油";
+				d.value = "报警触发切断油路开关";
+				d.d = new Object();
+				d.d.type="oiloff";
+				d.d.times = 1;
+				d.d.freq = 5;
+				d.d.params = new Object();
+				d.d.params.tolist="";
+				d.d.params.content = "";
+				this._actions.addItem(d);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+		<mx:DataGrid x="3" y="34" width="172" height="310" id="dgPolicies" click="dgPolicies_clickHandler(event)" horizontalGridLines="true" horizontalScrollPolicy="auto">
+			<mx:columns>
+				<mx:DataGridColumn headerText="报警配置项" dataField="name"/>
+			</mx:columns>
+		</mx:DataGrid>
+		<s:Button x="10" y="10" label="新增" id="btnNewPolicy" width="50" click="btnNewPolicy_clickHandler(event)"/>
+		<s:Button x="63" y="10" label="删除" id="btnDelPolicy" width="50" click="btnDelPolicy_clickHandler(event)"/>
+		<mx:TabNavigator x="178" y="35" width="462" height="337" creationPolicy="all" paddingTop="4">
+			<s:NavigatorContent label="触发条件" width="100%" height="100%">
+				<s:layout>
+					<s:BasicLayout/>
+				</s:layout>
+				<mx:DataGrid x="5" y="30" width="234" height="272" id="dgFilters" change="dgFilters_changeHandler(event)" dataProvider="{_filters}" horizontalGridLines="true" horizontalScrollPolicy="auto">
+					<mx:columns>
+						<mx:DataGridColumn headerText="触发名称" dataField="name"/>
+						<mx:DataGridColumn headerText="参数值" dataField="value"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:TabNavigator x="246" y="32" width="205" height="270" paddingTop="4" creationPolicy="all">
+					<s:NavigatorContent label="速度" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:TextInput x="108" y="49" width="51" text="150" id="edtSpeedEnd"/>
+						<s:Label x="167" y="55" text="公里"/>
+						<s:Button x="8" y="87" label="添加" id="btnAddSpeed" click="btnAddSpeed_clickHandler(event)"/>
+						<s:TextInput x="44" y="49" width="44" text="80" id="edtSpeedStart"/>
+						<s:Label x="93" y="52" text="~"/>
+						<s:Label x="9" y="22" text="请输入速度检测区间:"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="围栏" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:RadioButton x="22" y="25" label="进入" id="rbIn" selected="true"/>
+						<s:RadioButton x="91" y="25" label="离开" id="rbOut"/>
+						<s:DropDownList x="10" y="78" width="183" id="cbBarriers"></s:DropDownList>
+						<s:Button x="11" y="108" label="添加" id="btnAddBarrier" click="btnAddBarrier_clickHandler(event)"/>
+						<s:Button x="116" y="53" label="载入" id="btnLoadBarrier" click="btnLoadBarrier_clickHandler(event)"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="其他" width="100%" height="100%">
+						<s:Button x="136" y="58" label="添加" width="60" id="btnAddGpsLost" click="btnAddGpsLost_clickHandler(event)"/>
+						<s:Label x="10" y="30" text="设备掉电"/>
+						<s:Label x="10" y="65" text="Gps失锁"/>
+						<s:Label x="10" y="95" text="ACC状态"/>
+						<s:Label x="10" y="125" text="设备离线"/>
+						<s:DropDownList x="65" y="89" width="65" labelField="name" selectedIndex="0" id="cbAccType">
+							<s:dataProvider>
+								<s:ArrayList>
+									<fx:Object name="关闭" value="0"/>
+									<fx:Object name="打开" value="1"/>
+								</s:ArrayList>
+								
+							</s:dataProvider>
+						</s:DropDownList>
+						<s:Button x="136" y="27" label="添加" width="60" id="btnAddPowerOff" click="btnAddPowerOff_clickHandler(event)"/>
+						<s:Button x="136" y="119" label="添加" width="60" id="btnAddOffline" click="btnAddOffline_clickHandler(event)"/>
+						<s:Button x="136" y="89" label="添加" width="60" id="btnAddAccDetect" click="btnAddAccDetect_clickHandler(event)"/>
+						<s:Label x="10" y="154" text="按键报警SOS"/>
+						<s:Button x="137" y="148" label="添加" width="60" id="btnAddKeySos" click="btnAddKeySos_clickHandler(event)"/>
+					</s:NavigatorContent>
+				</mx:TabNavigator>
+				<s:Label x="145" y="10" text="持续时间(秒):" height="18"/>
+				<s:TextInput x="220" y="6" width="50" text="10" id="edtSupressTime" textAlign="center" />
+				<s:Button x="10" y="6" label="删除" width="50" id="btnDelFilter" click="btnDelFilter_clickHandler(event)"/>
+				<s:Label x="278" y="10" text="抑制时间(分钟):"/>
+				<s:TextInput x="367" y="7" width="50" textAlign="center" text="0" id="edtSuppressWait" />
+			</s:NavigatorContent>
+			
+			<s:NavigatorContent label="时间限制" width="100%" height="100%">
+				<s:layout>
+					<s:BasicLayout/>
+				</s:layout>
+				<mx:DateField x="94" y="24" id="dtStart" formatString="YYYY-MM-DD"/>
+				<mx:DateField x="227" y="23" id="dtEnd" formatString="YYYY-MM-DD"/>
+				<s:Label x="199" y="32" text="到"/>
+				<s:CheckBox x="12" y="25" label="日期限制" id="ckTimeLimitDayRange"/>
+				<s:Label x="169" y="71" text="点      到 "/>
+				<s:CheckBox x="12" y="65" label="时段限制" id="ckTimeLimitHours"/>
+				<s:CheckBox x="98" y="104" label="周一" id="ckWeek1"/>
+				<s:CheckBox x="12" y="102" label="星期限制" id="ckTimeLimitWeeks"/>
+				<s:CheckBox x="152" y="104" label="周二" id="ckWeek2"/>
+				<s:CheckBox label="周三" x="210" y="104" id="ckWeek3"/>
+				<s:CheckBox x="270" y="105" label="周四" id="ckWeek4"/>
+				<s:CheckBox x="333" y="105" label="周五" id="ckWeek5"/>
+				<s:CheckBox x="98" y="133" label="周六" id="ckWeek6"/>
+				<s:CheckBox x="153" y="134" label="周日" id="ckWeek7"/>
+				<s:TextInput x="95" y="64" width="68" text="00" textAlign="center" id="edtHourStart"/>
+				<s:TextInput x="227" y="63" width="68" text="24" textAlign="center" id="edtHourEnd"/>
+				<s:Label x="304" y="68" text="点"/>
+			</s:NavigatorContent>
+			
+			<s:NavigatorContent label="报警动作" width="100%" height="100%">
+				<mx:DataGrid x="10" y="10" height="120" width="441" horizontalGridLines="true" id="dgActions" dataProvider="{_actions}" horizontalScrollPolicy="auto" click="dgActions_clickHandler(event)">
+					<mx:columns>
+						<mx:DataGridColumn headerText="动作类型" dataField="name" width="60"/>
+						<mx:DataGridColumn headerText="参数" dataField="value"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:TabNavigator x="10" y="138" width="364" height="164" paddingTop="2">
+					<s:NavigatorContent label="邮件" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						
+							<s:TextArea x="53" y="37" height="60" width="273" id="edtActMailContent" text="$aoname $time $name $reason"/>
+							<s:Label x="10" y="16" text="接收者"/>
+							<s:TextInput x="53" y="10" width="206" id="edtActMailRecieptions"/>
+							<s:Button x="266" y="10" label="默认" width="58" id="btnActMailDefault"/>
+							<s:Label x="4" y="107" text="执行次数"/>
+							<s:TextInput x="54" y="102" text="1" width="52" textAlign="center" id="edtActMailTimes" change="edtActMailTimes_changeHandler(event)"/>
+							<s:Label x="122" y="108" text="执行间隔(秒)"/>
+							<s:TextInput x="194" y="102" text="5" width="53" textAlign="center" id="edtActMailWait"/>
+							<s:Label x="10" y="47" text="内容"/>
+							<s:Button x="259" y="100" label="添加" chromeColor="#725929" height="25" id="btnActMailSave" click="btnActMailSave_clickHandler(event)" width="60"/>
+						
+					</s:NavigatorContent>
+					<s:NavigatorContent label="短信" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:TextArea x="53" y="37" height="60" width="273" id="edtActSMSContent" text="$aoname $time $name $reason"/>
+						<s:Label x="10" y="16" text="接收者"/>
+						<s:TextInput x="53" y="10" width="206" id="edtActSMSRecieptions"/>
+						<s:Button x="266" y="10" label="默认" width="58" id="btnActSMSDefault"/>
+						<s:Label x="4" y="107" text="执行次数"/>
+						<s:TextInput x="54" y="102" text="1" width="52" textAlign="center" id="edtActSMSTimes"/>
+						<s:Label x="122" y="108" text="执行间隔(秒)"/>
+						<s:TextInput x="194" y="102" text="5" width="53" textAlign="center" id="edtActSMSWait"/>
+						<s:Label x="10" y="47" text="内容"/>
+						<s:Button x="259" y="100" label="添加" chromeColor="#725929" height="25" id="btnActSMSSave" width="60" click="btnActSMSSave_clickHandler(event)"/>
+					</s:NavigatorContent>
+					<s:NavigatorContent label="其他" width="100%" height="100%">
+						<s:layout>
+							<s:BasicLayout/>
+						</s:layout>
+						<s:Button x="207" y="53" label="断电" width="145" enabled="true" height="28" id="btnActAsiPowerOff" click="btnActAsiPowerOff_clickHandler(event)"/>
+						<s:Button x="207" y="92" label="断油" width="145" enabled="true" height="28" id="btnAsiActOilOff" click="btnAsiActOilOff_clickHandler(event)"/>
+						<s:Button x="205" y="13" label="取消报警关联" width="147" id="btnActAsiDetach" click="btnActAsiDetach_clickHandler(event)" height="28"/>
+					</s:NavigatorContent>
+				</mx:TabNavigator>
+				<s:Button x="380" y="136" label="删除" id="btnDelAction" click="btnDelAction_clickHandler(event)"/>
+			</s:NavigatorContent>
+			<s:NavigatorContent label="说明" width="100%" height="100%">
+				<s:layout>
+					<s:BasicLayout/>
+				</s:layout>
+				<s:RichEditableText x="7" y="7" text="RichEditableText" width="443" height="296" id="txtHelp"/>
+			</s:NavigatorContent>
+		</mx:TabNavigator>
+		<s:Label x="181" y="15" text="名称"/>
+		<s:TextInput x="217" y="10" width="211" id="edtPolicyName"/>
+		<s:Button x="436" y="10" label="保存" id="btnSave" click="btnSave_clickHandler(event)" width="60"/>
+		<s:Button x="117" y="10" label="复制" width="50" id="btnCopy" visible="false"/>
+		<s:CheckBox x="505" y="11" label="启用" id="ckEnable" selected="true"/>
+		<s:TextInput x="3" y="347" width="121" id="edtSearchName"/>
+		<s:Button x="126" y="348" label="检索" id="btnAsiSearch" width="50" click="btnAsiSearch_clickHandler(event)"/>
+
+</s:Group>

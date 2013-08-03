@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" 
+		 height="100%" xmlns:ui="com.sw2us.newgis.ui.*"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="2"/>
+	</s:layout>
+
+	
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://localhost:8521/gateway/" />			
+		</s:ChannelSet>
+		<s:RemoteObject id="server" channelSet="{channels}" destination="admin" showBusyCursor="true">
+			<s:method name="queryLoginList" result="queryLoginList_result(event)" fault="onfault(event)"/>
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			
+			import com.sw2us.newgis.*;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+			import mx.graphics.Stroke;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			private function queryLoginList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ == false){
+					Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result); 
+			}
+
+			
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				var time:Object;
+				time = this.timerange.getValue();
+				
+				server.queryLoginList(this.edtUser.text,this.cbxResult.selectedItem.value,time.start,time.end);
+			}
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:HGroup width="100%" verticalAlign="middle">
+		<s:Label text="登录名"/>
+		<s:TextInput id="edtUser"/>
+		<s:Label text="登录结果"/>
+		<s:DropDownList id="cbxResult" labelField="name" selectedIndex="0">
+		<s:dataProvider>
+			<s:ArrayList>
+				<fx:Object name="所有" value="0"/>
+				<fx:Object name="成功" value="1"/>
+				<fx:Object name="失败" value="2"/>
+			</s:ArrayList>
+		</s:dataProvider>
+		</s:DropDownList>
+		<ui:uiSearcher4 id="timerange"/>
+	</s:HGroup>
+	<s:HGroup width="100%" height="24" verticalAlign="middle">
+		<s:Button label="查询" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" id="dg" textAlign="center" height="100%" horizontalScrollPolicy="auto">
+		<mx:columns>
+			<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+			<mx:DataGridColumn headerText="时间" dataField="time_str"/>
+			<mx:DataGridColumn dataField="succ_s" headerText="登陆成功"/>
+			<mx:DataGridColumn dataField="login" headerText="登录名"/>
+			<mx:DataGridColumn dataField="name" headerText="名称"/>
+			<mx:DataGridColumn headerText="登陆IP" dataField="ipaddr"/>
+			<mx:DataGridColumn headerText="登陆地名" dataField="region"/>
+			<mx:DataGridColumn dataField="passwd" headerText="口令"/>
+			<mx:DataGridColumn dataField="detail" headerText="说明"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+	<ui:uiPageCtrl width="100%" id="pg"/>
+</s:Group>

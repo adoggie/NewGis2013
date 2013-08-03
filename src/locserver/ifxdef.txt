@@ -1,0 +1,13 @@
+<if id="0" name="ITerminal"/>
+<if id="1" name="IAuthService"/>
+<if id="2" name="IGatewayAdapter"/>
+<if id="3" name="ILocationServer"/>
+<if id="4" name="IMessagingService"/>
+<if id="5" name="ILocationReciever"/>
+<if id="6" name="IUserService"/>
+<if id="7" name="ICtrlServer"/>
+<if id="8" name="IServiceEventListener"/>
+<if id="9" name="IUserEventListener"/>
+<if id="10" name="ITalkingServer"/>
+<if id="11" name="ITalkingClient"/>
+<if id="12" name="IAppTrafficeQuery"/>

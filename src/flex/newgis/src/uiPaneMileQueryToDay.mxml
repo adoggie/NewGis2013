@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="608" height="412" xmlns:ui="com.sw2us.newgis.ui.*">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:HGroup width="100%" height="40" verticalAlign="middle" color="#D4CDCD">
+		<s:Label text="名称"/>
+		<s:TextInput/>
+		<s:Button label="检索" id="btnSearch"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" id="dg">
+		<mx:columns>
+			<mx:DataGridColumn headerText="对象名称"/>
+			<mx:DataGridColumn headerText="开始时间" dataField="time_str"/>
+			<mx:DataGridColumn headerText="结束时间" dataField="ipaddr"/>
+			<mx:DataGridColumn headerText="天数"/>
+			<mx:DataGridColumn headerText="里程(公里)" dataField="region"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+</s:Group>

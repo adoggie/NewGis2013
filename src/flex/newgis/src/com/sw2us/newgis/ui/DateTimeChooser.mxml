@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="216" height="30"
+		  creationComplete="init()">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle" paddingLeft="2"/>
+	</s:layout>
+	
+	<fx:Script>
+		<![CDATA[
+			import org.openscales.core.StringUtils;
+			public function getValue():Date{
+				var strhm:String;
+				strhm = StringUtils.trim(hm.text);
+				var ar_hm:Array = strhm.split(":");
+				var h:String = "0";
+				var m:String ="0";
+				if(ar_hm.length){
+					h = ar_hm[0];
+				}
+				if(ar_hm.length>1){
+					m = ar_hm[1];
+				}
+				var rtdate:Date = new Date();
+				
+				if( date.selectedDate ){
+					rtdate = date.selectedDate;
+					//rtdate.fullYearUTC = date.selectedDate.fullYear;
+					//rtdate.day = dat
+					//rtdate.monthUTC = date.selectedDate.month;
+					//rtdate.dateUTC = date.selectedDate.date;
+					//date.selectedDate.`
+					//rtdate.hours = parseInt(h);
+					//rtdate.minutes = parseInt(m);
+					
+					rtdate.hours= parseInt(h);
+					rtdate.minutes = parseInt(m);
+					
+				}
+				return rtdate;
+			} 
+			
+			public function setValue(dt:Date):void{
+				date.selectedDate = dt;
+				hm.text = dt.hours.toString()+":"+dt.minutes.toString();
+			}
+		
+			private function init():void{
+				date.selectedDate = new Date();
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<mx:DateField width="120" id="date" formatString="YYYY-MM-DD" fontSize="14"/>
+	<s:TextInput id="hm" width="84" text="00:00" restrict="0-9:" textAlign="center" fontSize="14" fontWeight="bold"/>
+</s:Group>

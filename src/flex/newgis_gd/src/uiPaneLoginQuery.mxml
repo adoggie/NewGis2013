@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="100%" height="100%" xmlns:ns1="*" xmlns:gis="com.sw2us.newgis.gis.*" 
+		 xmlns:ui="com.sw2us.newgis.ui.*"
+		  creationComplete="init()">
+	<s:layout>
+		<s:VerticalLayout gap="2"/>
+	</s:layout>
+	<fx:Declarations>
+		<s:ChannelSet id="channels">			
+			<s:AMFChannel id="pyamf" uri="http://127.0.0.1:8500/gateway/" />			
+		</s:ChannelSet>
+		
+		<s:RemoteObject id="server" channelSet="{channels}" destination="gis" showBusyCursor="true">
+			<s:method name="queryUserLoginList" result="queryUserLoginList_result(event)" fault="onfault(event)"/>
+			
+		</s:RemoteObject>
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.sw2us.newgis.AppCore;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private function init():void{
+				pyamf.uri = AppCore.instance().getAmfServerUrl();
+			}
+			
+			
+			private function onfault(event:FaultEvent):void{
+				Alert.show(event.fault.faultDetail);
+			}	
+			
+			private function queryUserLoginList_result(event:ResultEvent):void{
+				var cr:Object = event.result;
+				if(cr.succ==false){
+					//Alert.show(cr.msg);
+					return;
+				}
+				dg.dataProvider = new ArrayCollection( cr.result as Array);
+				
+				
+			}
+
+			protected function btnSearch_clickHandler(event:MouseEvent):void
+			{
+				server.queryUserLoginList(timerange.getValue().start,timerange.getValue().end);
+			}
+
+		]]>
+	</fx:Script>
+	
+	<s:HGroup width="100%" height="40" verticalAlign="middle">
+		<ui:uiSearcher4 id="timerange"/>
+		<s:Button label="查询" id="btnSearch" click="btnSearch_clickHandler(event)"/>
+	</s:HGroup>
+	<mx:DataGrid width="100%" height="100%" id="dg" textAlign="center" horizontalScrollPolicy="auto" horizontalGridLines="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="idx" headerText="编号" width="40"/>
+			<mx:DataGridColumn headerText="时间" dataField="time_str"/>
+			<mx:DataGridColumn headerText="登陆IP" dataField="ipaddr"/>
+			<mx:DataGridColumn headerText="登陆地名" dataField="region"/>
+			<mx:DataGridColumn/>
+		</mx:columns>
+	</mx:DataGrid>
+</s:Group>
